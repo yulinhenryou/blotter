@@ -38,8 +38,8 @@ The first real user is **Henry**, a live and online No-Limit Hold'em player (abo
 experience; has read *The Theory of Poker* and *Modern Poker Theory*), who will use it to review
 their own hands. Henry knows Python, Java and JavaScript well and is **new to Rust**.
 
-**Current status:** M0 (skeleton and CI) in progress — see `docs/plans/M0.md`. No feature code
-exists yet. Setup and commands: `docs/DEVELOPMENT.md`.
+**Current status:** M0 (skeleton and CI) complete — see `docs/plans/M0.md`. Next: M1 (CFR on
+Kuhn and Leduc), not started. No feature code exists yet. Setup and commands: `docs/DEVELOPMENT.md`.
 
 ## 2. Core principles (non-negotiable)
 
@@ -94,7 +94,7 @@ exists yet. Setup and commands: `docs/DEVELOPMENT.md`.
   Never prefix them with the project name.
 - In prose documentation, prefer "the project" / "the product" over the name, except in titles
   and the opening of README / VISION.
-- From M0 onward, a CI check (`scripts/check_project_name.py`, planned) fails the build if the
+- From M0 onward, a CI check (`scripts/check_project_name.py`) fails the build if the
   name appears outside the allowed locations.
 
 ### Rename checklist

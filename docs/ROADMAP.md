@@ -5,8 +5,8 @@ criterion is met and verified (by CI, a test, or a recorded run with command and
 thresholds that cannot be chosen honestly before a first measurement are marked **[set after
 first measurement]** and are recorded in `DECISIONS.md` when fixed.
 
-Current status: **pre-M0** (design documents only). Detailed plan for the next milestone:
-[`plans/M0.md`](plans/M0.md).
+Current status: **M0 complete** (skeleton and CI; [`plans/M0.md`](plans/M0.md)). Next: M1, not
+started; its task-level plan will be `plans/M1.md`.
 
 ## Order
 
