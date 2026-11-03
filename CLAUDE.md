@@ -38,8 +38,8 @@ The first real user is **Henry**, a live and online No-Limit Hold'em player (abo
 experience; has read *The Theory of Poker* and *Modern Poker Theory*), who will use it to review
 their own hands. Henry knows Python, Java and JavaScript well and is **new to Rust**.
 
-**Current status:** design documents only. No feature code exists yet. Next milestone: M0,
-planned in `docs/plans/M0.md`. See `docs/ROADMAP.md`.
+**Current status:** M0 (skeleton and CI) in progress — see `docs/plans/M0.md`. No feature code
+exists yet. Setup and commands: `docs/DEVELOPMENT.md`.
 
 ## 2. Core principles (non-negotiable)
 
@@ -99,25 +99,23 @@ planned in `docs/plans/M0.md`. See `docs/ROADMAP.md`.
 
 ### Rename checklist
 
-Locations that **currently** contain the name (design-documents phase):
+Every location that contains the name. `scripts/check_project_name.py` (CI workflow `Repo`)
+fails if the name appears anywhere else, or if the declared names below disagree with
+`project.json`. Keep its `ALLOWED` list and this table in sync.
 
 | Location | What |
 |---|---|
+| `project.json` (repo root) | Canonical display name and tagline. The web app reads it at build time (`web/vite.config.ts`: page title, `__APP_NAME__`) |
+| `python/src/review/_project.py` | `DISPLAY_NAME` constant used by the API (OpenAPI title) |
+| `python/pyproject.toml` → `[project].name` | Python distribution name (lower case). The import package is `review` |
+| `web/package.json` → `name` | npm package name (lower case) |
+| `python/uv.lock`, `web/package-lock.json` | Lock files repeat the package names; regenerate, never hand-edit |
+| `web/openapi.json` | Generated API schema (title); regenerate with `scripts/export_openapi.py` |
 | `CLAUDE.md` | This notice and checklist |
 | `README.md` | Title and opening paragraph |
 | `docs/VISION.md` | Title and opening paragraph |
-| `docs/DECISIONS.md` | ADR-0011 (naming policy), which must mention the name |
-| Local folder `~/Desktop/Blotter`; GitHub repository `yulinhenryou/blotter` (name and description) | Outside the code; GitHub redirects after a rename |
-
-Locations **planned** for M0 (update this table when they are created):
-
-| Location | What |
-|---|---|
-| `project.json` (repo root) | Canonical display name and tagline. Single source of truth for the web app (index.html title, PWA manifest) via the Vite config |
-| `python/pyproject.toml` → `[project].name` | Python distribution name (lower case). The import package is `review`, not the project name |
-| `python/src/review/_project.py` | `DISPLAY_NAME` constant used by the API (e.g. OpenAPI title); checked against `project.json` by CI |
-| `web/package.json` → `name` | npm package name (lower case) |
-| `python/uv.lock`, `web/package-lock.json` | Lock files repeat the package names; regenerated, not hand-edited |
+| `docs/DECISIONS.md` | ADR-0011 (naming policy), ADR-0017 (repository) |
+| Local folder `~/Desktop/Blotter`; GitHub repository `yulinhenryou/blotter` (name and description) | Outside the repository; GitHub redirects after a rename |
 | `Cargo.toml` (workspace) | **No occurrence by design** — crates are named `cards`, `solver`, `bindings` |
 
 Note: the tagline "A trading blotter for your poker decisions" uses *blotter* as a common noun.
@@ -137,24 +135,26 @@ On a rename, decide separately whether to keep the tagline. To audit:
 
 Rationale and alternatives: `docs/ARCHITECTURE.md` and `docs/DECISIONS.md`.
 
-## 6. Repository layout (planned, created in M0)
+## 6. Repository layout
 
 ```
 .
 ├── CLAUDE.md  README.md  LICENSE-MIT  LICENSE-APACHE  project.json
-├── Cargo.toml                 # Rust workspace
+├── Cargo.toml  Cargo.lock     # Rust workspace
+├── rust-toolchain.toml  clippy.toml  deny.toml
 ├── crates/
 │   ├── cards/                 # cards, combos, ranges, hand evaluator, equity
 │   ├── solver/                # games, trees, CFR variants, best response
 │   └── bindings/              # PyO3 layer only; no logic
 ├── python/
 │   ├── pyproject.toml         # maturin build backend, uv-managed
-│   ├── src/review/            # ledger, attribution, leaks, calibration, opponents,
-│   │                          # bankroll, storage, api, engine wrapper
+│   ├── src/review/            # engine wrapper, api; later ledger, attribution, leaks,
+│   │                          # calibration, opponents, bankroll, storage
 │   └── tests/
-├── web/                       # Vite + React + TS app
-├── scripts/                   # repo tooling (name check, plot generation)
-├── docs/                      # VISION, ARCHITECTURE, MATH, ROADMAP, DECISIONS
+├── web/                       # Vite + React + TS app; openapi.json = API contract
+├── scripts/                   # repo tooling (name check, OpenAPI export)
+├── docs/                      # VISION, ARCHITECTURE, MATH, ROADMAP, DECISIONS,
+│                              # DEVELOPMENT (setup and commands)
 │   └── plans/                 # per-milestone implementation plans
 └── .github/workflows/
 ```
@@ -178,7 +178,8 @@ Rationale and alternatives: `docs/ARCHITECTURE.md` and `docs/DECISIONS.md`.
 - Numeric precision: `f64` by default; any switch to `f32` must be justified by a measurement.
 
 **Python**
-- Python version pinned in M0. `ruff check`, `ruff format`, `mypy --strict` clean.
+- Python 3.15 (`python/.python-version`, ADR-0018). `ruff check`, `ruff format`, `mypy --strict`
+  clean.
 - Type hints everywhere; NumPy-style docstrings; formulas in docstrings reference `docs/MATH.md`
   section numbers.
 - Pure modules (`ledger`, `attribution`, `leaks`, `calibration`, `opponents`, `bankroll`) do not
@@ -186,7 +187,8 @@ Rationale and alternatives: `docs/ARCHITECTURE.md` and `docs/DECISIONS.md`.
 - Randomness always through an explicit `numpy.random.Generator` with a seed parameter.
 
 **TypeScript**
-- `strict: true`; `eslint` clean; Prettier formatting.
+- `strict: true`; `eslint` clean; Prettier formatting. TypeScript is pinned to 5.9 until the lint
+  and codegen tools support TypeScript 7 (ADR-0018).
 - API types are generated from the FastAPI OpenAPI schema, never hand-written.
 - Design tokens (color, spacing, type) as CSS custom properties; numbers use
   `font-variant-numeric: tabular-nums`.

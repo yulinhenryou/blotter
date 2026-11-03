@@ -2,8 +2,9 @@
 
 **A trading blotter for your poker decisions.**
 
-> Status: **early development.** This repository currently contains design documents only. No
-> features are implemented yet. "Blotter" is a working name and may change.
+> Status: **early development.** This repository contains design documents and a build skeleton
+> (Rust engine crates, Python API, web app, CI). No poker features are implemented yet.
+> "Blotter" is a working name and may change.
 
 Traders record every trade on a blotter and later attribute their P&L: how much came from real
 edge, and how much from noise. This project aims to do the same for poker decisions — record each
@@ -47,6 +48,7 @@ you play.
 - [Mathematical models](docs/MATH.md) — outline of the game theory and statistics, with references
 - [Roadmap](docs/ROADMAP.md) — milestones and acceptance criteria
 - [Decisions](docs/DECISIONS.md) — architecture decision records
+- [Development](docs/DEVELOPMENT.md) — setup, checks, running locally
 
 ## Planned technology
 
@@ -55,6 +57,13 @@ SQLite. Details and rationale in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## License
 
-The project will be dual-licensed under the MIT License or the Apache License 2.0, at your option.
-The license files are added in milestone M0; until they are in the repository, all rights are
-reserved.
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT License ([LICENSE-MIT](LICENSE-MIT))
+
+at your option.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in
+this project, as defined in the Apache-2.0 license, shall be dual-licensed as above, without any
+additional terms or conditions.
