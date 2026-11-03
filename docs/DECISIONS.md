@@ -54,6 +54,7 @@ How we will know the decision works (test, benchmark, measurement).
 | 0014 | Project license: dual MIT / Apache-2.0 | Accepted |
 | 0015 | Two independent CFR implementations, cross-validated | Accepted |
 | 0016 | Roadmap ordering adjustments | Accepted |
+| 0017 | Repository visibility: private until M0 closes | Accepted |
 
 All records below dated 2026-11-03. Proposals 0004 (data format), 0006 (SQLAlchemy + Alembic),
 0007 (details), 0008, 0012, 0013, 0015 and 0016 were accepted by Henry on 2026-11-03; ADR-0014
@@ -245,3 +246,22 @@ vehicle for learning the algorithm and Rust together.
 **Decision** (details in `ROADMAP.md`): (A) pull a capture-only slice
 (hand record, storage, phone entry) forward to right after M1 so real data starts accumulating
 early; (B) split turn subgames out of M2 into a later M2b.
+
+## ADR-0017: Repository visibility — private until M0 closes
+
+- Status: Accepted (Henry delegated the choice to Claude, 2026-11-03)
+
+**Context.** The GitHub repository `yulinhenryou/blotter` was created on 2026-11-03. Henry left the
+choice between public and private to Claude.
+
+**Decision.** Private for now. Revisit when M0 closes: the license files are in place, CI is green,
+and the README describes only verified state.
+
+**Why.** Making a repository public cannot really be undone: content may be cloned, cached or
+indexed. Going from private to public later is one click. Until the license files exist, the README
+says all rights are reserved, which does not fit a public repository. The design documents also
+describe the first user personally; Henry should review them before they are public.
+
+**Consequences.** GitHub Actions minutes on private repositories are limited by the account's
+plan. Keep CI path-filtered and cached; check usage when M0's workflows land.
+

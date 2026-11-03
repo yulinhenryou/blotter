@@ -107,7 +107,7 @@ Locations that **currently** contain the name (design-documents phase):
 | `README.md` | Title and opening paragraph |
 | `docs/VISION.md` | Title and opening paragraph |
 | `docs/DECISIONS.md` | ADR-0011 (naming policy), which must mention the name |
-| Local folder `~/Desktop/Blotter`, future GitHub repository name | Outside the code |
+| Local folder `~/Desktop/Blotter`; GitHub repository `yulinhenryou/blotter` (name and description) | Outside the code; GitHub redirects after a rename |
 
 Locations **planned** for M0 (update this table when they are created):
 
