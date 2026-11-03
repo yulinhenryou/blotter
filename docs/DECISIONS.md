@@ -292,6 +292,8 @@ builds the native module for 3.15 and the tests pass.
   because it was specified and its type-aware rules (typescript-eslint `strictTypeChecked`) have
   no full oxlint equivalent yet. Switching to oxlint would be a change of direction and needs
   Henry's decision.
+- **`astral-sh/setup-uv` pinned to a full version** (`v10.3.3`): the action publishes no
+  floating major tag, so `@v10` does not resolve. Other actions use major tags.
 - **httpx2 instead of httpx** in the dev group: Starlette's `TestClient` deprecates `httpx` in
   favor of `httpx2`, and pytest is configured to treat warnings as errors.
 
