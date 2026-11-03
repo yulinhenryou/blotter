@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "zsh",
+      "runtimeArgs": ["-lc", "cd python && uv run uvicorn --factory review.api.app:create_app --port 8000"],
+      "port": 8000
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "zsh",
+      "runtimeArgs": ["-lc", "cd web && npm run dev -- --port 5173 --strictPort"],
+      "port": 5173
+    }
+  ]
+}

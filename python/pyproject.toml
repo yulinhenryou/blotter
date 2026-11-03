@@ -1,0 +1,61 @@
+[build-system]
+requires = ["maturin>=1.16,<2"]
+build-backend = "maturin"
+
+[project]
+name = "blotter"
+description = "Post-game poker decision review: decision ledger, luck/skill attribution, leak statistics."
+license = "MIT OR Apache-2.0"
+requires-python = ">=3.15"
+dynamic = ["version"]
+dependencies = [
+    "fastapi>=0.162.0",
+    "uvicorn>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "hypothesis>=6.170.14",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.3",
+]
+
+[tool.maturin]
+manifest-path = "../crates/bindings/Cargo.toml"
+python-source = "src"
+module-name = "review._engine"
+features = ["pyo3/extension-module"]
+
+[tool.uv]
+# Rebuild the native module whenever Rust sources or manifests change.
+cache-keys = [
+  { file = "pyproject.toml" },
+  { file = "../Cargo.toml" },
+  { file = "../Cargo.lock" },
+  { file = "../crates/**/*.rs" },
+  { file = "../crates/**/Cargo.toml" },
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "N", "SIM", "RUF", "D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.mypy]
+strict = true
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = ["error"]

@@ -1,0 +1,40 @@
+name: Python
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "python/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "scripts/export_openapi.py"
+      - "web/openapi.json"
+      - ".github/workflows/python.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install toolchain from rust-toolchain.toml
+        run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+      # Builds the native module review._engine with maturin.
+      - run: uv sync --locked
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run mypy
+      # Includes the check that web/openapi.json matches the API.
+      - run: uv run pytest
