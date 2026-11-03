@@ -1,0 +1,247 @@
+# Architecture Decision Records
+
+Decisions that shape the project, recorded so that later sessions do not re-litigate them.
+
+**Statuses:** *Proposed* (awaiting Henry), *Accepted*, *Superseded by ADR-xxxx*, *Rejected*.
+Changing an Accepted decision requires a new ADR that supersedes it, agreed with Henry first.
+
+---
+
+## Template
+
+```markdown
+## ADR-XXXX: <short title>
+
+- Status: Proposed | Accepted | Superseded by ADR-YYYY | Rejected
+- Date: YYYY-MM-DD
+- Deciders: Henry (+ Claude as proposer)
+
+### Context
+What problem or force requires a decision? What constraints apply?
+
+### Decision
+What we will do, stated precisely.
+
+### Alternatives considered
+- Option — why not chosen.
+
+### Consequences
+What becomes easier, what becomes harder, what we must now watch.
+
+### Verification (if applicable)
+How we will know the decision works (test, benchmark, measurement).
+```
+
+---
+
+## Index
+
+| ADR | Title | Status |
+|---|---|---|
+| 0001 | Record architecture decisions | Accepted |
+| 0002 | Monorepo with three independent sub-projects | Accepted |
+| 0003 | Rust EV engine limited to heads-up turn/river subgames with CFR+ / DCFR | Accepted |
+| 0004 | Rust ↔ Python boundary: PyO3 + maturin; JSON specs, NumPy arrays | Accepted |
+| 0005 | Python service layer: FastAPI, NumPy/SciPy/pandas, uv | Accepted |
+| 0006 | Storage: SQLite first, PostgreSQL-portable via SQLAlchemy 2 + Alembic | Accepted |
+| 0007 | Front end: React + TS + Vite PWA with offline-first capture | Accepted |
+| 0008 | Bayesian tooling: SciPy closed-form/EB for serving, PyMC + ArviZ offline | Accepted |
+| 0009 | Reference solvers as external test oracles only; no AGPL code | Accepted |
+| 0010 | Post-game only; capture mode shows no analysis | Accepted |
+| 0011 | Provisional project name, centrally defined | Accepted |
+| 0012 | Units: integer chips in storage, bb for analysis | Accepted |
+| 0013 | Python package layout: maturin mixed project, import name `review` | Accepted |
+| 0014 | Project license: dual MIT / Apache-2.0 | Accepted |
+| 0015 | Two independent CFR implementations, cross-validated | Accepted |
+| 0016 | Roadmap ordering adjustments | Accepted |
+
+All records below dated 2026-11-03. Proposals 0004 (data format), 0006 (SQLAlchemy + Alembic),
+0007 (details), 0008, 0012, 0013, 0015 and 0016 were accepted by Henry on 2026-11-03; ADR-0014
+(license) was decided the same day.
+
+---
+
+## ADR-0001: Record architecture decisions
+
+- Status: Accepted
+
+**Context.** A long-running project developed across many sessions loses the reasons behind
+decisions. **Decision.** Significant decisions are recorded here with the template above.
+**Consequences.** Before proposing a change of direction, check this file; any change supersedes
+an ADR explicitly.
+
+## ADR-0002: Monorepo with three independent sub-projects
+
+- Status: Accepted
+
+**Decision.** One repository with `crates/` (Rust workspace), `python/` (uv project), `web/`
+(npm project), plus `docs/` and `scripts/`. Each sub-project builds and tests independently; CI
+has one path-filtered workflow per sub-project.
+**Alternatives.** Separate repositories — cross-layer changes (e.g. a spec field added in Rust and
+used in Python and TS) would need coordinated releases.
+**Consequences.** Atomic cross-layer changes; three toolchains to install locally.
+
+## ADR-0003: Rust EV engine limited to heads-up turn/river subgames with CFR+ / DCFR
+
+- Status: Accepted
+
+**Context.** The product needs per-combo action EVs for reviewed decisions, not a general-purpose
+solver. **Decision.** Rust engine implementing CFR+ and Discounted CFR over heads-up subgames rooted
+at the turn or river, with a limited bet-size abstraction; the actually played line is always in
+the tree. Hand evaluation, ranges and trees in Rust. Criterion benchmarks from the start;
+optimizations justified by measurement.
+**Alternatives.** Wrapping an existing open-source solver — the mature ones are AGPL-3.0 (see
+ADR-0009) and building the engine is also a learning goal. Pure-Python CFR — too slow for hold'em
+subgames.
+**Consequences.** Preflop/flop/multiway decisions are unscored early on; EVs are conditional on
+assumed ranges (documented in `MATH.md` §1.4, §3.3).
+
+## ADR-0004: Rust ↔ Python boundary
+
+- Status: Accepted
+
+**Decision.** PyO3 + maturin; a single native module `review._engine`. Format: versioned
+JSON specs parsed with serde; bulk numeric results as NumPy arrays; GIL released during solves;
+typed `.pyi` stubs; small exception hierarchy.
+**Alternatives.** `#[pyclass]` types for every spec field — more Rust boilerplate and harder schema
+evolution. A separate solver process with an HTTP/gRPC interface — more moving parts for a
+single-user app.
+**Consequences.** One schema source (Rust) with a mirrored Pydantic model, protected by a
+round-trip test.
+
+## ADR-0005: Python service layer
+
+- Status: Accepted
+
+**Decision.** Python with NumPy, SciPy, pandas for statistics; FastAPI for the HTTP API; uv for
+environments and dependencies; ruff, mypy (strict), pytest. Python version pinned in M0 to the
+newest version supported by all dependencies.
+
+## ADR-0006: Storage
+
+- Status: Accepted
+
+**Decision.** SQLite as the initial database. SQLAlchemy 2.0 for all access and Alembic
+for migrations; UUIDv7 keys (client-generated for offline capture); integer chip amounts; UTC
+timestamps; JSON columns only for data never filtered in hot paths. Migrations tested against
+both SQLite and PostgreSQL in CI from M3a.
+**Alternatives.** SQLModel (thin layer over SQLAlchemy + Pydantic; younger, less control); raw SQL
+(PostgreSQL migration becomes manual).
+
+## ADR-0007: Front end
+
+- Status: Accepted
+
+**Details.** TanStack Query; React Router; CSS Modules with design tokens as CSS custom
+properties; headless accessible primitives where needed; D3 modules for scales/shapes with React
+rendering SVG; `vite-plugin-pwa`; IndexedDB offline queue; TS types generated from OpenAPI; npm;
+Vitest + Testing Library; Playwright for e2e from M4a.
+**Alternatives.** Tailwind (fast, but fine-grained typographic restraint is easier with tokens and
+plain CSS); visx / Recharts for charts (less control over style); pnpm (faster, one more tool).
+
+## ADR-0008: Bayesian tooling
+
+- Status: Accepted
+
+**Decision.** Tier 1 (serving path): conjugate and empirical-Bayes models implemented
+with NumPy/SciPy. Tier 2 (offline modeling and validation): PyMC + ArviZ as an optional dependency
+group. Comparison with NumPyro, Stan (CmdStanPy) and Bambi in `ARCHITECTURE.md` §5.2.
+**Why.** Tier 1 is fast, deterministic and fully derivable — matching the goal of understanding
+every formula. Tier 2 checks the approximations and handles models without closed forms. PyMC is
+preferred over NumPyro (JAX adds a second paradigm) and Stan (a third language next to Rust and
+Python).
+
+## ADR-0009: Reference solvers as external test oracles only
+
+- Status: Accepted
+
+**Context.** TexasSolver and postflop-solver are licensed AGPL-3.0 (checked 2026-11-03;
+postflop-solver's development was suspended by its author in October 2023).
+**Decision.** They may be run as separate programs to produce reference outputs for fixed spots,
+stored as test fixtures with solver name, version, settings and date. Their code is never copied,
+vendored, linked, or transcribed; our algorithms are implemented from the published papers.
+`cargo deny` checks dependency licenses in CI.
+
+## ADR-0010: Post-game only; capture mode shows no analysis
+
+- Status: Accepted
+
+**Decision.** The product is for review and learning after play. No real-time assistance of any
+kind. Architecturally: capture routes never request or render EV, strategy or opponent-model
+output; an e2e test asserts this. Stated in README.
+
+## ADR-0011: Provisional project name, centrally defined
+
+- Status: Accepted
+
+**Decision.** The working name "Blotter" is provisional. It appears only in the locations listed
+in `CLAUDE.md` §4 (rename checklist). Code identifiers are functional (`cards`, `solver`, `ledger`,
+`attribution`, …) and never carry the project name. A CI script enforces this from M0.
+
+## ADR-0012: Units
+
+- Status: Accepted
+
+**Decision.** Store chip amounts as integers in the smallest unit of the session's
+stakes, with the big-blind size stored per session. All analysis and display in bb. Field names
+carry units (`_chips`, `_bb`, `_pct_pot`).
+**Why.** Integer storage avoids floating-point drift in chip conservation checks; bb makes results
+comparable across stakes.
+
+## ADR-0013: Python package layout
+
+- Status: Accepted
+
+**Decision.** One Python distribution built by maturin in mixed mode: Python sources in
+`python/src/review/`, native module `review._engine` built from `crates/bindings`. Distribution name
+= project name (rename location); import name = `review` (functional: the product reviews play).
+**Alternatives.** Two packages (pure-Python statistics + a separate native-engine package in a uv
+workspace) — cleaner isolation but more packaging to learn; can be split later if build times hurt.
+
+## ADR-0014: Project license — dual MIT / Apache-2.0
+
+- Status: Accepted
+
+**Context.** The repository may be public. The reference solvers are AGPL-3.0, but we use them only
+as external test oracles (ADR-0009), so their license does not constrain ours.
+
+**Decision.** All code in the repository is licensed under **MIT OR Apache-2.0**, at the user's
+option — the common convention in the Rust ecosystem. SPDX expression `MIT OR Apache-2.0` in
+`Cargo.toml` (`[workspace.package]`), `python/pyproject.toml` and `web/package.json`. License texts
+in `LICENSE-MIT` and `LICENSE-APACHE` at the repository root, taken verbatim from the canonical
+sources (not reproduced from memory). The README states the dual license and the standard
+contribution clause (contributions are dual-licensed unless stated otherwise).
+
+**Alternatives considered.**
+- MIT only — simpler, but no explicit patent grant.
+- Apache-2.0 only — patent grant, but MIT is the more familiar choice for small reuses.
+- AGPL-3.0 — would require source disclosure for network use and would limit reuse.
+- No license for now — keeps the repository effectively closed.
+
+**Consequences.**
+- `cargo deny` allow-list must include only licenses compatible with distribution under
+  MIT OR Apache-2.0; copyleft dependencies (GPL, AGPL, LGPL) are denied.
+- The same rule applies to Python and npm dependencies, checked by review when they are added
+  (automated checks optional, later).
+- Fonts and other assets keep their own licenses (e.g. SIL OFL for Libre Baskerville), recorded
+  next to the files.
+- Copyright holder: **Henry Ou** (`Copyright (c) 2026 Henry Ou` in `LICENSE-MIT`).
+
+## ADR-0015: Two independent CFR implementations, cross-validated
+
+- Status: Accepted
+
+**Decision.** A small tabular CFR over a generic game trait (Kuhn, Leduc) as the
+readable reference, and a vector-form public-tree CFR for hold'em subgames. Both must agree on
+Leduc.
+**Why.** Independent implementations catch each other's bugs; the tabular version is the best
+vehicle for learning the algorithm and Rust together.
+**Cost.** Extra code to maintain (the tabular part is small).
+
+## ADR-0016: Roadmap ordering adjustments
+
+- Status: Accepted
+
+**Decision** (details in `ROADMAP.md`): (A) pull a capture-only slice
+(hand record, storage, phone entry) forward to right after M1 so real data starts accumulating
+early; (B) split turn subgames out of M2 into a later M2b.
