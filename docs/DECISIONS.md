@@ -55,6 +55,7 @@ How we will know the decision works (test, benchmark, measurement).
 | 0015 | Two independent CFR implementations, cross-validated | Accepted |
 | 0016 | Roadmap ordering adjustments | Accepted |
 | 0017 | Repository visibility: private until M0 closes | Accepted |
+| 0018 | Toolchain and dependency versions pinned in M0 | Accepted |
 
 All records below dated 2026-11-03. Proposals 0004 (data format), 0006 (SQLAlchemy + Alembic),
 0007 (details), 0008, 0012, 0013, 0015 and 0016 were accepted by Henry on 2026-11-03; ADR-0014
@@ -264,4 +265,43 @@ describe the first user personally; Henry should review them before they are pub
 
 **Consequences.** GitHub Actions minutes on private repositories are limited by the account's
 plan. Keep CI path-filtered and cached; check usage when M0's workflows land.
+
+## ADR-0018: Toolchain and dependency versions pinned in M0
+
+- Status: Accepted (follows the rule in ADR-0005 and `docs/plans/M0.md` §0.3; deviations below
+  are flagged for Henry)
+- Date: 2026-11-03
+
+**Decision.** Versions as of 2026-11-03:
+
+| Layer | Pinned | Where |
+|---|---|---|
+| Rust | rustc / cargo 1.99.1, edition 2024; PyO3 0.30.1; maturin ≥ 1.16; criterion 0.8.2 | `rust-toolchain.toml`, `Cargo.toml`, `python/pyproject.toml` |
+| Python | 3.15 (uv-managed); FastAPI ≥ 0.162, uvicorn ≥ 0.54; dev: pytest 9.2, mypy 2.4, ruff 0.17, hypothesis, httpx2 | `python/.python-version`, `python/pyproject.toml`, `python/uv.lock` |
+| Web | Node 26 (Active LTS) in CI; React 19.3, Vite 8.3, Vitest 4.1, ESLint 10 + typescript-eslint 8.72, Prettier 3.9, openapi-typescript 7.13; **TypeScript 5.9.3** | `web/.nvmrc`, `web/package.json`, `web/package-lock.json` |
+
+**Evidence for Python 3.15.** NumPy 2.5.4, SciPy 1.18.1, pandas 3.1.0, PyMC 6.4.0 and ArviZ 1.3.0
+installed from wheels and imported on CPython 3.15.2, macOS arm64 (checked 2026-11-03). PyO3 0.30.1
+builds the native module for 3.15 and the tests pass.
+
+**Deviations from the latest releases (for Henry's attention).**
+- **TypeScript 5.9.3, not 7.0.** typescript-eslint 8.72 supports TypeScript `<6.1` and
+  openapi-typescript 7.13 requires TypeScript `^5`. 5.9 is the newest version that satisfies both.
+  Revisit when both support TypeScript 7.
+- **ESLint, not oxlint.** The current Vite template ships oxlint instead of ESLint. ESLint is kept
+  because it was specified and its type-aware rules (typescript-eslint `strictTypeChecked`) have
+  no full oxlint equivalent yet. Switching to oxlint would be a change of direction and needs
+  Henry's decision.
+- **`astral-sh/setup-uv` pinned to a full version** (`v10.3.3`): the action publishes no
+  floating major tag, so `@v10` does not resolve. Other actions use major tags.
+- **httpx2 instead of httpx** in the dev group: Starlette's `TestClient` deprecates `httpx` in
+  favor of `httpx2`, and pytest is configured to treat warnings as errors.
+
+**Known issue accepted.** `npm audit` reports 15 moderate advisories, all in the transitive
+dependency `minimatch` of the lint tooling (dev only, never shipped to the browser). The only
+automatic fix is a breaking downgrade of typescript-eslint. Revisit when upstream releases a fix.
+
+**Verified behavior.** `uv run` rebuilds the native module automatically after Rust edits
+(`[tool.uv] cache-keys`), checked by changing `solver::engine_version` and observing the new value
+from Python.
 

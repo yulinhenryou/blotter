@@ -1,0 +1,52 @@
+/*
+ * Design tokens (first draft, M0). Restrained palette, generous spacing, serif headings,
+ * tabular figures for every number. See docs/ARCHITECTURE.md §6.
+ */
+
+:root {
+  /* Color: near-monochrome base, one accent, a colorblind-safe pair for EV gain/loss. */
+  --color-bg: #fbfaf7;
+  --color-surface: #ffffff;
+  --color-text: #1c1c1e;
+  --color-text-muted: #6e6e73;
+  --color-rule: #e3e1dc;
+  --color-accent: #2f4a6d;
+  --color-ev-gain: #2b6cb0;
+  --color-ev-loss: #c05621;
+
+  /* Type */
+  --font-serif: Baskerville, 'Libre Baskerville', 'Baskerville Old Face', Georgia, serif;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-display: clamp(2.5rem, 6vw, 4rem);
+
+  /* Space (4px base) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  --measure: 36rem;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #121212;
+    --color-surface: #1c1c1e;
+    --color-text: #f2f2f0;
+    --color-text-muted: #a1a1a6;
+    --color-rule: #333336;
+    --color-accent: #9db4d3;
+    --color-ev-gain: #7fb2e5;
+    --color-ev-loss: #f0a36b;
+  }
+}

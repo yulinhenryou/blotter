@@ -1,0 +1,19 @@
+[package]
+name = "bindings"
+description = "PyO3 bindings: the native module review._engine. Type conversion only, no logic."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "_engine"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3.workspace = true
+solver.workspace = true
+
+[lints]
+workspace = true

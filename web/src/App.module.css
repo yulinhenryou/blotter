@@ -1,0 +1,42 @@
+.page {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: var(--space-16) var(--space-4);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-display);
+  letter-spacing: -0.01em;
+}
+
+.tagline {
+  margin: var(--space-3) 0 var(--space-12);
+  color: var(--color-text-muted);
+  font-size: var(--text-lg);
+}
+
+.status {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--color-rule);
+  border-bottom: 1px solid var(--color-rule);
+  font-size: var(--text-sm);
+}
+
+.status dt {
+  color: var(--color-text-muted);
+}
+
+.status dd {
+  margin: 0;
+}
+
+.note {
+  margin-top: var(--space-8);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}

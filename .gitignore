@@ -1,1 +1,27 @@
+# macOS
 .DS_Store
+
+# Rust
+/target/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.hypothesis/
+*.so
+*.pyd
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# Local data (hand records are personal data)
+*.sqlite
+*.sqlite3
+*.db
+/data/

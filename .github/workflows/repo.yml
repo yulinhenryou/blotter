@@ -1,0 +1,20 @@
+name: Repo
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  project-name:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+      - run: python -m unittest discover -s scripts/tests
+      - run: python scripts/check_project_name.py
