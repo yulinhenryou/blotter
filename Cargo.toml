@@ -14,6 +14,7 @@ cards = { path = "crates/cards" }
 solver = { path = "crates/solver" }
 pyo3 = "0.30.1"
 criterion = "0.8.2"
+num-rational = { version = "0.4.2", default-features = false, features = ["std"] }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

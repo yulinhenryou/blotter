@@ -264,8 +264,91 @@ per board).
 
 ### 2.7 Best response and exploitability
 
-Best response in the public tree: a backward pass where the best-responding player maximizes per
-combo at their own nodes. Exploitability as in §1.1.
+**Definitions.** Fix the opponent's strategy $\sigma_{-i}$. For a node $h$ let $\pi_{-i}(h)$ be the
+product of chance's and the opponent's probabilities on the path to $h$ (player $i$'s own
+probabilities are left out: $i$ is assumed to steer towards $h$). For a pure strategy $s_i$ of the
+responder, let $v_i(h)$ be $i$'s expected payoff of the subtree below $h$ when $i$ plays $s_i$
+and everyone else plays as given; then $u_i(s_i, \sigma_{-i}) = v_i(\text{root})$.
+
+**Why information sets, not nodes.** At an information set $I$ the responder must choose one action
+for all $h \in I$. Grouping the terminal histories below $I$ by $h$, the part of $u_i$ that depends
+on the choice $a$ at $I$ is
+
+$$Q(I, a) = \sum_{h \in I} \pi_{-i}(h)\, v_i(h \cdot a),$$
+
+(the responder's own reach to $I$ is a common factor and does not change the argmax). The best
+response picks $\arg\max_a Q(I, a)$. Maximizing separately at each node $h$ would let the
+responder "see" the opponent's private card and overstates $b_i$: against the uniform strategy in
+Kuhn, a node-wise P2 gets $1/2$ instead of the correct $5/12$ (below).
+
+**Order of decisions.** $Q(I, a)$ needs $v_i$ below $I$, which depends on $i$'s choices at deeper
+information sets but not on those at $I$'s level or above. With perfect recall every node of $I$ has
+the same own-depth $d(I)$ — the number of $i$'s decisions before it — and every information set of
+$i$ below a node of $I$ has a larger depth. So decide all information sets with the largest depth
+first, then the next level, up to depth 0, recomputing $v_i$ once per level. Large games need
+faster methods (Johanson et al. 2011); Kuhn and Leduc are small, and the simple version is easier
+to check.
+
+**Algorithm** (as implemented in `crates/solver/src/best_response.rs`; nodes are stored in
+post-order, children before parents):
+
+1. $\pi_{-i}$ for every node, root first (decreasing node index).
+2. $d$ for every node, root first; group $i$'s information sets by depth.
+3. For each level from the deepest: compute $v_i$ for every node in one pass in increasing index
+   (responder nodes already decided use their action), then set each information set of the level
+   to $\arg\max_a Q(I, a)$, lowest action index on ties.
+4. $b_i(\sigma_{-i}) = v_i(\text{root})$ with all decisions made.
+
+Exploitability: $e(\sigma) = \tfrac12\big(b_1(\sigma_2) + b_2(\sigma_1)\big)$ (§1.1). The code is
+generic over the number type; tests run it with exact rationals.
+
+**Hand computation 1: Kuhn, against the uniform strategy** (every action with probability 1/2).
+Values are P1's or P2's net chips; each card of the opponent has probability 1/2.
+
+*P1's best response.* Facing check–bet: J folds ($-1$ beats calling, $-2$); Q calls (against J
+$+2$, against K $-2$: average $0 > -1$); K calls. Opening:
+
+| P1 card | Bet | Check | Best |
+|---|---|---|---|
+| J | $\tfrac12(-2) + \tfrac12(+1) = -\tfrac12$ | P2 checks: $-1$; bets: P1 folds, $-1$ → $-1$ | bet, $-\tfrac12$ |
+| Q | against J $\tfrac32$, against K $-\tfrac12$ → $\tfrac12$ | against J $\tfrac12(1) + \tfrac12(2) = \tfrac32$, against K $-\tfrac32$ → $0$ | bet, $\tfrac12$ |
+| K | $\tfrac12(2) + \tfrac12(1) = \tfrac32$ | $\tfrac12(1) + \tfrac12(2) = \tfrac32$ | tie, $\tfrac32$ |
+
+$b_1 = \tfrac13\big(-\tfrac12 + \tfrac12 + \tfrac32\big) = \tfrac12$.
+
+*P2's best response.* P1 bets with probability 1/2 and, after check–bet, calls with 1/2.
+
+| P2 card | Facing a bet | After a check | Value $\tfrac12(\text{bet}) + \tfrac12(\text{check})$ |
+|---|---|---|---|
+| J | fold $-1$ (call: $-2$) | bet $\tfrac12(-2) + \tfrac12(1) = -\tfrac12$ (check: $-1$) | $-\tfrac34$ |
+| Q | call: $\tfrac12(2) + \tfrac12(-2) = 0$ (fold: $-1$) | bet: against J $\tfrac32$, against K $-\tfrac12$ → $\tfrac12$ (check: $0$) | $\tfrac14$ |
+| K | call $+2$ | bet $\tfrac32$ (check: $1$) | $\tfrac74$ |
+
+$b_2 = \tfrac13\big(-\tfrac34 + \tfrac14 + \tfrac74\big) = \tfrac{5}{12}$.
+
+*Value of uniform against uniform.* With $s = \pm 1$ the sign of P1's showdown: bet gives
+$\tfrac12(2s) + \tfrac12 = s + \tfrac12$; check gives $\tfrac12 s + \tfrac12\big(\tfrac12(2s) - \tfrac12\big)
+= s - \tfrac14$; average $s + \tfrac18$. Over the six deals $E[s] = 0$, so $u_1 = \tfrac18$.
+Exploitability $e = \tfrac12\big(\tfrac12 + \tfrac5{12}\big) = \tfrac{11}{24}$.
+
+**Hand computation 2: why the opponent's reach matters.** P1 bets only with K, checks J and Q;
+facing check–bet J folds, Q and K call. P2's best response:
+
+- J: after a check P1 holds Q (K never checks): check $-1$ beats bet $-2$; facing a bet P1 holds K:
+  fold $-1$. Value $-1$.
+- Q: after a check P1 holds J: check and bet both give $+1$ (tie). Facing a bet P1 holds K, so fold
+  ($-1$, not call $-2$). Value $\tfrac12(1) + \tfrac12(-1) = 0$.
+- K: after a check P1 holds J or Q: bet ($+1$ against J, which folds; $+2$ against Q, which calls)
+  beats check ($+1$, $+1$). Value $\tfrac32$.
+
+$b_2 = \tfrac13\big(-1 + 0 + \tfrac32\big) = \tfrac16$. Summing the histories of "Q facing a bet"
+*without* the reach weights would see $+2$ against J and $-2$ against K, call, and get $b_2 = 0$:
+the test of this case fails if the weighting is removed.
+
+**Checks.** Both computations, and the zero exploitability of the §1.2 family for
+$\alpha \in \{0, 1/6, 1/3\}$, were cross-checked outside the repository by enumerating all
+$2^6$ pure strategies of each player with exact fractions; the in-repository tests are
+`crates/solver/src/best_response.rs`.
 
 - Reference: Johanson, Waugh, Bowling & Zinkevich (2011).
 
