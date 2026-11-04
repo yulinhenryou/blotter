@@ -57,6 +57,7 @@ How we will know the decision works (test, benchmark, measurement).
 | 0017 | Repository visibility: private until M0 closes | Superseded by 0019 |
 | 0018 | Toolchain and dependency versions pinned in M0 | Accepted |
 | 0019 | Public repository with rewritten commit identities | Accepted |
+| 0020 | Exact rationals in tests: `num-rational` as a dev-dependency | Accepted |
 
 All records below dated 2026-11-03. Proposals 0004 (data format), 0006 (SQLAlchemy + Alembic),
 0007 (details), 0008, 0012, 0013, 0015 and 0016 were accepted by Henry on 2026-11-03; ADR-0014
@@ -333,3 +334,22 @@ the original commits.
 **Consequences.** PR numbers and CI run links from M0 refer to the archive repository, which is
 private. Merge-commit messages in the public history mention PR numbers of the archive, not of the
 public repository. New PRs in the public repository start again at #1.
+
+## ADR-0020: Exact rationals in tests — `num-rational` as a dev-dependency
+
+- Status: Accepted (Henry, 2026-11-04: M1 plan decision D1)
+- Date: 2026-11-04
+
+**Context.** M1 AC3 asks for best-response values checked exactly against hand computations, and
+the Kuhn equilibrium should have exploitability exactly 0 and value exactly −1/18. Floating point
+cannot represent 1/18 or 1/3.
+
+**Decision.** Evaluation, best response and exploitability are generic over a small `Value` trait
+(`crates/solver/src/value.rs`), implemented for `f64` in library code and for
+`num_rational::Ratio<i64>` in test code only. `num-rational` 0.4.2 (MIT OR Apache-2.0), with
+`default-features = false, features = ["std"]` (no big-integer support needed), is a
+dev-dependency of `solver`: it is not part of any build that ships.
+
+**Consequences.** Generic code is monomorphized per type, so the `f64` path costs nothing extra.
+`Ratio<i64>` can overflow on large games; it is only used on Kuhn-sized test cases.
+

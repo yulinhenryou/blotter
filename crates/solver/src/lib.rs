@@ -1,11 +1,16 @@
 //! Game trees, CFR variants and best-response computation.
 //!
 //! M1 (see `docs/plans/M1.md`): a generic game description ([`game`]), its flattened tree
-//! ([`tree`]) and small validation games ([`games`]). CFR and best response follow.
+//! ([`tree`]), small validation games ([`games`]), strategy profiles ([`strategy`]) and exact best
+//! response and exploitability ([`best_response`]), generic over the number type ([`value`]).
+//! CFR follows.
 
+pub mod best_response;
 pub mod game;
 pub mod games;
+pub mod strategy;
 pub mod tree;
+pub mod value;
 
 /// Version of this crate, read from `Cargo.toml` at compile time.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -168,6 +168,21 @@ impl GameTree {
     pub fn infosets(&self) -> &[Infoset] {
         &self.infosets
     }
+
+    /// The information set whose key is `key`, if any. A linear search: meant for tests and
+    /// setup code, not for inner loops.
+    pub fn find_infoset(&self, key: &str) -> Option<InfosetId> {
+        self.infosets.iter().position(|set| set.key == key)
+    }
+
+    /// The children of decision node `id`, one per action of its information set; empty for
+    /// terminal and chance nodes.
+    pub fn decision_children(&self, id: NodeId) -> &[NodeId] {
+        match &self.nodes[id] {
+            Node::Decision { children, .. } => children,
+            Node::Terminal { .. } | Node::Chance { .. } => &[],
+        }
+    }
 }
 
 /// State of a [`GameTree::build`] call.
