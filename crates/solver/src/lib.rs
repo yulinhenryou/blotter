@@ -1,6 +1,11 @@
 //! Game trees, CFR variants and best-response computation.
 //!
-//! Placeholder created in M0; CFR on Kuhn and Leduc arrives in M1 (see `docs/ROADMAP.md`).
+//! M1 (see `docs/plans/M1.md`): a generic game description ([`game`]), its flattened tree
+//! ([`tree`]) and small validation games ([`games`]). CFR and best response follow.
+
+pub mod game;
+pub mod games;
+pub mod tree;
 
 /// Version of this crate, read from `Cargo.toml` at compile time.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
