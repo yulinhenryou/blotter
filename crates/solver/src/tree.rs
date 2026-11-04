@@ -183,6 +183,19 @@ impl GameTree {
             Node::Terminal { .. } | Node::Chance { .. } => &[],
         }
     }
+
+    /// A copy of this tree with every terminal payoff replaced by `payoff(node id)`: same
+    /// information structure, different game. Lets property tests run on many zero-sum games.
+    #[cfg(test)]
+    pub(crate) fn with_payoffs(&self, mut payoff: impl FnMut(NodeId) -> i64) -> GameTree {
+        let mut tree = self.clone();
+        for (id, node) in tree.nodes.iter_mut().enumerate() {
+            if let Node::Terminal { payoff_p1_chips } = node {
+                *payoff_p1_chips = payoff(id);
+            }
+        }
+        tree
+    }
 }
 
 /// State of a [`GameTree::build`] call.

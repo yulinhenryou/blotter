@@ -194,31 +194,268 @@ effective stack $S$, the acting order, an action abstraction, and **ranges** $r_
 
 ### 2.1 Regret and regret matching
 
-For a repeated decision with actions $A$ and per-round values $v^t(a)$, cumulative regret
-$R^T(a) = \sum_{t=1}^T \big(v^t(a) - v^t(\sigma^t)\big)$. Regret matching plays
+**Setting.** One decision is repeated in rounds $t = 1, 2, \dots$ with a finite action set $A$. In
+round $t$ the learner plays a mixed strategy $\sigma^t$; then a value $v^t(a)$ for every action is
+revealed. The values may depend on anything, including $\sigma^t$ (an adversary may choose them).
+The learner receives $v^t(\sigma^t) = \sum_a \sigma^t(a)\, v^t(a)$. Instantaneous and cumulative
+regret:
+
+$$r^t(a) = v^t(a) - v^t(\sigma^t), \qquad R^T(a) = \sum_{t=1}^T r^t(a), \quad R^0 = 0.$$
+
+**Regret matching** plays each action in proportion to its positive cumulative regret:
 
 $$\sigma^{T+1}(a) = \frac{R^{T,+}(a)}{\sum_{b \in A} R^{T,+}(b)}, \quad x^+ = \max(x, 0),$$
 
-uniform if the denominator is 0. Average regret goes to 0 at rate $O(1/\sqrt{T})$.
+uniform if the denominator is 0. Example: $R = (3, -1, 1)$ gives $\sigma = (3/4, 0, 1/4)$.
 
-- **[Derive]** the no-regret bound for regret matching (Blackwell approachability sketch, or the
-  direct potential-function proof).
-- Reference: Hart & Mas-Colell (2000).
+**Bound.** If $|r^t(a)| \le \Delta$ for all $t$ and $a$, then
+
+$$\max_a R^T(a) \le \Delta \sqrt{|A|\, T}, \qquad \text{so the average regret } \tfrac1T \max_a R^T(a) \le \Delta \sqrt{|A| / T}.$$
+
+If every $v^t(a)$ lies in an interval of width $\Delta$, the condition holds: $v^t(\sigma^t)$ lies in
+the same interval.
+
+*Proof* (potential function $\Phi(R) = \sum_a (R(a)^+)^2$).
+
+1. *Regret matching makes the new regret orthogonal to the old positive regrets:*
+   $\sum_a R^{t-1,+}(a)\, r^t(a) = 0$. If $s = \sum_b R^{t-1,+}(b) > 0$, then
+   $R^{t-1,+}(a) = s\,\sigma^t(a)$ and $\sum_a \sigma^t(a)\, r^t(a) = v^t(\sigma^t) - v^t(\sigma^t) = 0$.
+   If $s = 0$, every term is 0.
+2. *For all real $x$, $r$: $\big((x + r)^+\big)^2 \le (x^+ + r)^2$.* If $x \ge 0$, this is
+   $\big((x+r)^+\big)^2 \le (x+r)^2$. If $x < 0$, then $(x + r)^+ \le r^+ \le |r| = |x^+ + r|$.
+3. With $x = R^{t-1}(a)$ and $r = r^t(a)$:
+   $\Phi(R^t) \le \sum_a \big(R^{t-1,+}(a) + r^t(a)\big)^2
+   = \Phi(R^{t-1}) + 2\sum_a R^{t-1,+}(a)\, r^t(a) + \sum_a r^t(a)^2 \le \Phi(R^{t-1}) + |A|\,\Delta^2$.
+4. So $\Phi(R^T) \le |A|\,\Delta^2\, T$, and $\max_a R^T(a) \le \max_a R^{T,+}(a) \le \sqrt{\Phi(R^T)}
+   \le \Delta\sqrt{|A|\,T}$. ∎
+
+The bound holds for *every* sequence of values. This is what CFR needs: the values seen at one
+information set keep changing because the strategies everywhere else keep changing (§2.2).
+
+**Test targets.** For any finite regrets, a regret-matching row is non-negative and sums to 1
+(property test, `crates/solver/src/regret.rs`). Inside CFR, every information set satisfies the
+bound (§2.2).
+
+- References: regret matching is due to Hart & Mas-Colell (2000) (not yet checked against the
+  paper). The bound in this form is Zinkevich et al. (2007), Theorem 4 (checked against the NIPS
+  proceedings version; that version defers the proof to a full version). The proof above is the
+  standard potential-function argument, written out here.
 
 ### 2.2 Counterfactual regret minimization (CFR)
 
-Counterfactual value of information set $I$ for player $i$:
+**Notation** (as in §2.7). $\pi^\sigma_{-i}(h)$ is the product of chance's and the opponent's
+probabilities on the path to $h$, and $\pi^\sigma_i(h)$ is player $i$'s own. With perfect recall,
+$\pi^\sigma_i(h)$ is the same for every $h \in I$; write it $\pi^\sigma_i(I)$. $u_i(\sigma, h)$ is
+$i$'s expected payoff from $h$ on when everyone plays $\sigma$.
 
-$$v_i(\sigma, I) = \sum_{h \in I} \pi^\sigma_{-i}(h) \sum_{z \sqsupseteq h} \pi^\sigma(h, z)\, u_i(z).$$
+**Counterfactual values** of an information set $I$ of player $i$ and of its actions:
 
-Immediate counterfactual regret $r^t(I, a) = v_i(\sigma^t_{I \to a}, I) - v_i(\sigma^t, I)$; run
-regret matching independently at every information set. The **average strategy** (weighted by the
-player's own reach) converges to a Nash equilibrium in two-player zero-sum games: if each player's
-average overall regret is at most $\varepsilon$, the average profile is a $2\varepsilon$-equilibrium.
+$$v_i(\sigma, I, a) = \sum_{h \in I} \pi^\sigma_{-i}(h)\, u_i(\sigma, h \cdot a), \qquad
+v_i(\sigma, I) = \sum_{a} \sigma(I, a)\, v_i(\sigma, I, a) = \sum_{h \in I} \pi^\sigma_{-i}(h)\, u_i(\sigma, h).$$
 
-- **[Derive]** the regret decomposition theorem (overall regret ≤ sum of positive immediate
-  counterfactual regrets) and the folk theorem linking average regret to exploitability.
-- Reference: Zinkevich, Johanson, Bowling & Piccione (2007).
+"Counterfactual": this is the value of $I$ if $i$ had played to reach it. Zinkevich et al. (2007,
+eq. 5) divide by $\pi^\sigma_{-i}(I)$ and multiply it back in eqs. 6–7; the products are the
+same.
+
+**Algorithm (vanilla CFR, simultaneous updates).** Start with $R^0(I, a) = S^0(I, a) = 0$. For
+$t = 1, \dots, T$:
+
+1. At every information set, $\sigma^t(I)$ is regret matching (§2.1) on $R^{t-1}(I, \cdot)$, so
+   $\sigma^1$ is uniform.
+2. For every information set $I$, of either player $i$, and every action $a$:
+   $R^t(I, a) = R^{t-1}(I, a) + v_i(\sigma^t, I, a) - v_i(\sigma^t, I)$ and
+   $S^t(I, a) = S^{t-1}(I, a) + \pi^{\sigma^t}_i(I)\, \sigma^t(I, a)$.
+
+The output is the **average strategy** $\bar\sigma^T(I, a) = S^T(I, a) / \sum_b S^T(I, b)$, uniform
+where the denominator is 0 (Zinkevich et al. 2007, eq. 4). Both players' updates in iteration $t$
+use the same $\sigma^t$ ("simultaneous"); CFR+ alternates (§2.3).
+
+In `crates/solver/src/cfr.rs` one iteration is four passes over the arena (nodes in post-order,
+§2.7):
+
+1. regret matching at every information set;
+2. reach probabilities, root first (decreasing node index);
+3. $u_1(\sigma^t, h)$, children first (increasing node index);
+4. for every information set, sums over its nodes.
+
+**Overall regret.** Player $i$'s regret against the sequence actually played is
+$R_i^T = \max_{\sigma'_i} \sum_{t=1}^T \big(u_i(\sigma'_i, \sigma^t_{-i}) - u_i(\sigma^t)\big)$.
+Zinkevich et al. (eq. 3) divide this by $T$.
+
+**Lemma 1 (the average strategy plays like the average of the iterations).** For every terminal
+history $z$: $\pi^{\bar\sigma^T}_i(z) = \frac1T \sum_t \pi^{\sigma^t}_i(z)$.
+
+*Proof.* By perfect recall, $i$'s decisions on the path to $z$ are a fixed list
+$(I_1, a_1), \dots, (I_k, a_k)$, with $\pi^\sigma_i(I_1) = 1$ and
+$\pi^\sigma_i(I_{j+1}) = \pi^\sigma_i(I_j)\,\sigma(I_j, a_j)$. Let
+$x_j = \frac1T \sum_t \pi^{\sigma^t}_i(I_j)\,\sigma^t(I_j, a_j)$, the average own reach of the path
+up to and including $a_j$, and $x_0 = 1$. Then $S^T(I_j, a_j) = T x_j$ and
+$\sum_b S^T(I_j, b) = \sum_t \pi^{\sigma^t}_i(I_j) = T x_{j-1}$. So
+$\bar\sigma^T(I_j, a_j) = x_j / x_{j-1}$, and the product telescopes:
+$\pi^{\bar\sigma^T}_i(z) = x_k = \frac1T \sum_t \pi^{\sigma^t}_i(z)$. If some $x_j = 0$, the first
+such factor is 0 and both sides are 0. ∎
+
+Since $u_i$ is linear in $i$'s terminal reach probabilities, for every opponent strategy
+$\sigma'_{-i}$:
+
+$$u_i(\bar\sigma^T_i, \sigma'_{-i}) = \frac1T \sum_t u_i(\sigma^t_i, \sigma'_{-i}).$$
+
+This is why the sums are weighted by the player's own reach. A plain average of the rows does not
+have this property: a row visited rarely would count as much as one visited every time.
+
+**Theorem 1 (exploitability of the average = average regret).** In a two-player zero-sum game,
+
+$$e(\bar\sigma^T) = \frac{R_1^T + R_2^T}{2T}.$$
+
+*Proof.* Let $\bar u = \frac1T \sum_t u_1(\sigma^t)$. By Lemma 1 for P2's average, for every
+$\sigma'_1$: $u_1(\sigma'_1, \bar\sigma^T_2) = \frac1T \sum_t u_1(\sigma'_1, \sigma^t_2)$. Taking the
+maximum over $\sigma'_1$ gives $b_1(\bar\sigma^T_2) = \bar u + R_1^T / T$. In the same way,
+$b_2(\bar\sigma^T_1) = \max_{\sigma'_2} \frac1T \sum_t u_2(\sigma^t_1, \sigma'_2) = -\bar u + R_2^T / T$.
+Add the two and halve (convention of §1.1). ∎
+
+Consequences:
+
+- **Zinkevich et al. (2007), Theorem 2.** If $R_i^T / T \le \varepsilon$ for both players, then
+  $\bar\sigma^T$ is a $2\varepsilon$-equilibrium. Proof: $u_1(\bar\sigma^T) \ge -b_2(\bar\sigma^T_1)$,
+  so P1's gain from deviating is
+  $b_1(\bar\sigma^T_2) - u_1(\bar\sigma^T) \le b_1 + b_2 = 2e \le 2\varepsilon$. The same holds for P2.
+- **Value bound.** Let $v^*$ be the game value. Then $b_1(\bar\sigma_2) \ge v^* \ge -b_2(\bar\sigma_1)$,
+  and $u_1(\bar\sigma)$ lies in the same interval. So $|u_1(\bar\sigma^T) - v^*| \le 2e(\bar\sigma^T)$.
+  For Kuhn, this ties the value test (AC1) to the exploitability.
+
+**Theorem 2 (regret decomposition; Zinkevich et al. 2007, Theorem 3).**
+$R_i^T \le \sum_{I \in \mathcal{I}_i} R^{T,+}(I)$, where $R^{T,+}(I) = \max_a R^T(I, a)^+$.
+
+*Proof.* Fix $i$.
+
+- *Definitions.* For an information set $I$ of $i$ and a pure strategy $s$ of $i$, let
+  $V^t(I, s) = \sum_{h \in I} \pi^{\sigma^t}_{-i}(h)\, u_i\big((s, \sigma^t_{-i}), h\big)$: the
+  counterfactual value of $I$ when $i$ plays $s$ from $I$ on. Let $\mathrm{Succ}(I, a)$ be the
+  information sets of $i$ reached after $I \cdot a$ before any other decision of $i$.
+  $\mathrm{Succ}(\varnothing)$ is those reached before any decision of $i$.
+- *Expansion.* For $\tau = s$ or $\tau = \sigma^t_i$,
+  $$\sum_{h \in I} \pi^{\sigma^t}_{-i}(h)\, u_i\big((\tau, \sigma^t_{-i}), h \cdot a\big)
+  = W^t(I, a) + \sum_{I' \in \mathrm{Succ}(I, a)} V^t(I', \tau).$$
+  $W^t(I, a)$ collects the terminals below $I \cdot a$ that are reached without another decision
+  of $i$, so it does not depend on $\tau$. The reason: between $h \cdot a$ and $i$'s next
+  decision $h'$, only chance and the opponent act, so $\pi_{-i}(h') = \pi_{-i}(h)$ times the
+  probability of that path. Perfect recall puts every such $h'$ in some
+  $I' \in \mathrm{Succ}(I, a)$, and every $h' \in I'$ arises this way from exactly one
+  $h \in I$.
+- *One step.* Let $a = s(I)$. Then $V^t(I, s)$ is the left side of the expansion with
+  $\tau = s$, and $v_i(\sigma^t, I, a)$ is the left side with $\tau = \sigma^t_i$. So
+  $$\sum_t \big(V^t(I, s) - v_i(\sigma^t, I)\big) = R^T(I, a) + \sum_{I' \in \mathrm{Succ}(I, a)} \sum_t \big(V^t(I', s) - V^t(I', \sigma^t_i)\big).$$
+- *Induction*, from the deepest information sets up:
+  $\sum_t \big(V^t(I, s) - V^t(I, \sigma^t_i)\big) \le \sum_{I'' \in D(I)} R^{T,+}(I'')$, where
+  $D(I)$ is $I$ together with all of $i$'s information sets below it. The induction step uses
+  $R^T(I, a) \le R^{T,+}(I)$. It also uses that the sets $D(I')$ for the different
+  $I' \in \mathrm{Succ}(I, a)$ are disjoint subsets of $D(I) \setminus \{I\}$ (by perfect recall,
+  each information set has one own history). All terms are $\ge 0$.
+- *Root.* $u_i(s, \sigma^t_{-i}) = W^t_0 + \sum_{I \in \mathrm{Succ}(\varnothing)} V^t(I, s)$, and
+  likewise for $\sigma^t_i$. Summing over $t$ gives
+  $\sum_t \big(u_i(s, \sigma^t_{-i}) - u_i(\sigma^t)\big) \le \sum_{I \in \mathcal{I}_i} R^{T,+}(I)$.
+  The maximum in $R_i^T$ is attained at a pure strategy: $u_i$ is linear in a mixed strategy,
+  and every behavioral strategy is equivalent to a mixed one. ∎
+
+**Combined bound.** At information set $I$, CFR is regret matching (§2.1) with values
+$v^t(a) = v_i(\sigma^t, I, a)$, and the learner's value is
+$v_i(\sigma^t, I) = \sum_a \sigma^t(I, a)\, v^t(a)$. The values lie in an interval of width at most
+$\Delta_u \sum_{h \in I} \pi^{\sigma^t}_{-i}(h) \le \Delta_u$, where
+$\Delta_u = \max_z u_1(z) - \min_z u_1(z)$. The sum $\sum_{h \in I} \pi_{-i}(h)$ is the probability of
+reaching $I$ when $i$ plays towards it, so it is at most 1. Hence
+
+$$\max_a R^T(I, a) \le \Delta_u \sqrt{|A(I)|\, T}, \qquad
+e(\bar\sigma^T) \;\le\; \frac{1}{2T} \sum_{i} \sum_{I \in \mathcal{I}_i} R^{T,+}(I)
+\;\le\; \frac{\Delta_u \sqrt{A_{\max}}\, \big(|\mathcal{I}_1| + |\mathcal{I}_2|\big)}{2\sqrt{T}}.$$
+
+For Kuhn, $\Delta_u = 4$, $A_{\max} = 2$ and $|\mathcal{I}_1| + |\mathcal{I}_2| = 12$, so
+$e \le 24\sqrt2 / \sqrt T$. This is a worst-case guarantee; measured values are below. The middle
+inequality can be checked on every run: its left side comes from the best-response code (§2.7)
+and its right side from the solver's own regret table.
+
+Nothing above says that the current strategy $\sigma^T$ converges; the guarantees are about
+$\bar\sigma^T$.
+
+**Hand computation: the first iteration on Kuhn.** $\sigma^1$ is uniform, so the action values are
+those of §2.7, hand computation 1, but with P1 *also* mixing uniformly at its later decisions.
+Each deal has probability 1/6. Per history (P1 values; P2's are negated):
+
+- P1 holding J:
+  - check: P2 checks w.p. 1/2 ($-1$) or bets ($-1$ fold, $-2$ call) → $-5/4$;
+  - bet: P2 folds ($+1$) or calls ($-2$) → $-1/2$.
+- P1 holding Q, check: against J, $\tfrac12(1) + \tfrac12\big(\tfrac12(-1) + \tfrac12(2)\big) = 3/4$;
+  against K, $-5/4$.
+
+| Information set | $\pi_{-i}(h)$ per history | Action values $v_i(\sigma^1, I, \cdot)$ | $v_i(\sigma^1, I)$ | $R^1(I, \cdot)$ |
+|---|---|---|---|---|
+| P1 `J/` (check, bet) | 1/6 | $-5/12$, $-1/6$ | $-7/24$ | $(-1/8, +1/8)$ |
+| P1 `Q/` (check, bet) | 1/6 | $\tfrac16(\tfrac34 - \tfrac54) = -1/12$, $\tfrac16(\tfrac32 - \tfrac12) = 1/6$ | $1/24$ | $(-1/8, +1/8)$ |
+| P1 `K/` (check, bet) | 1/6 | $1/4$, $1/2$ | $3/8$ | $(-1/8, +1/8)$ |
+| P1 `J/pb` (fold, call) | 1/12 | $-1/6$, $-1/3$ | $-1/4$ | $(+1/12, -1/12)$ |
+| P2 `Q/b` (fold, call) | 1/12 | $-1/6$, $\tfrac1{12}(-2 + 2) = 0$ | $-1/12$ | $(-1/12, +1/12)$ |
+| P2 `J/p` (check, bet) | 1/12 | $-1/6$, $-1/12$ | $-1/8$ | $(-1/24, +1/24)$ |
+
+Own reach: P1's opening and every P2 information set have $\pi_i = 1$, so $S^1 = (1/2, 1/2)$ there.
+`J/pb` has $\pi_1 = 1/2$ (P1 checked with 1/2), so $S^1 = (1/4, 1/4)$. Regret matching then gives
+$\sigma^2(\texttt{J/}) = (0, 1)$: after one iteration, P1 bets every card. The table was
+cross-checked outside the repository by an independent recursive implementation in exact
+fractions. The in-repository test is `first_iteration_matches_hand_computation`.
+
+**Test targets.**
+
+- The first-iteration table above.
+- Theorem 1 with Theorem 2: $e(\bar\sigma^T) \le \frac1{2T}\sum_I R^{T,+}(I)$, and the per-set bound
+  $\max_a R^T(I,a) \le \Delta_u\sqrt{|A(I)|\,T}$. These are checked as property tests on games
+  with Kuhn's tree and random payoffs.
+- Kuhn (AC1, AC2; tolerances under *Measurements*).
+
+**Measurements** (Kuhn, vanilla CFR, average strategy unless noted). Command:
+`cargo test -p solver --release print_kuhn_measurements -- --ignored --nocapture`. Code as in the
+commit that adds this section (parent `1c53bfb`); rustc 1.99.1, Apple M4. The run is
+deterministic, and debug and release builds print identical numbers.
+
+| $T$ | $e(\bar\sigma^T)$ | regret bound $\frac1{2T}\sum_I R^{T,+}(I)$ | $u_1(\bar\sigma^T) + \tfrac1{18}$ | $e(\sigma^{T+1})$, current strategy |
+|---|---|---|---|---|
+| 10 | 9.621e-2 | 1.087e-1 | 2.036e-2 | 1.910e-1 |
+| 100 | 2.567e-2 | 2.692e-2 | −4.317e-4 | 2.283e-1 |
+| 1,000 | 7.269e-3 | 7.394e-3 | −1.664e-6 | 2.150e-1 |
+| 10,000 | 2.318e-3 | 2.330e-3 | 9.160e-6 | 1.495e-1 |
+| 100,000 | 6.762e-4 | 6.762e-4 | 8.545e-7 | 2.675e-1 |
+
+Deviations from the equilibrium family (§1.2) of the average strategy, with
+$\alpha = P(\text{bet} \mid J)$:
+
+| $T$ | $P(\text{bet} \mid Q)$ | $P(\text{bet} \mid K) - 3\alpha$ | $P(\text{call} \mid Q, pb) - \alpha - \tfrac13$ | $\eta - \tfrac13$ (P2 calls Q) | $\xi - \tfrac13$ (P2 bluffs J) | $\alpha$ |
+|---|---|---|---|---|---|---|
+| 10 | 3.333e-1 | 1.190e-1 | 4.417e-1 | 5.587e-1 | −3.333e-2 | 0.1875 |
+| 100 | 3.458e-2 | −3.170e-2 | 9.938e-2 | 1.029e-1 | −2.684e-2 | 0.1942 |
+| 1,000 | 3.458e-3 | −4.553e-3 | 3.369e-2 | 3.546e-2 | −5.644e-3 | 0.2010 |
+| 10,000 | 3.458e-4 | −1.067e-2 | 9.699e-3 | 5.951e-3 | 1.211e-3 | 0.2078 |
+| 100,000 | 3.458e-5 | 8.369e-3 | 2.491e-3 | 7.838e-5 | 2.336e-3 | 0.2053 |
+
+Observations from these numbers:
+
+- **Average strategy.** Exploitability falls by roughly $\sqrt{10}$ per factor of 10 in $T$,
+  the rate of the bound. The regret bound is within 2% of the measured exploitability from
+  $T = 100$ on.
+- **Current strategy.** It does not converge (0.15–0.27 throughout).
+- **Q never bets.** $P(\text{bet} \mid Q) \approx 0.3458/T$: Q bets only in the first iterations,
+  and iteration 2 bets every card.
+- **Slow directions.** $P(\text{bet} \mid K) - 3\alpha$ is not monotone, and $\alpha$ settles
+  near 0.2. Directions along which exploitability changes little converge slowly.
+
+**Tolerances** (tests in `crates/solver/src/cfr.rs`, all at $T = 10^4$):
+
+- $e \le 3 \times 10^{-3}$ (measured 2.318e-3).
+- $|u_1 + \tfrac1{18}| \le 2 \times 10^{-5}$ (measured 9.16e-6). The value bound above,
+  $|u_1 + \tfrac1{18}| \le 2e$, is also checked at every checkpoint.
+- $P(\text{bet} \mid Q) \le 10^{-3}$.
+- Structure deviations $\le 0.02$, about twice the largest measured (0.0107).
+- Strictly preferred actions (§1.2, Step 1) have probability $\ge 0.98$.
+
+- Reference: Zinkevich, Johanson, Bowling & Piccione (2007). Checked against the NIPS proceedings
+  version: eqs. 3–8 and Theorems 2–4 as cited above. The proofs there are deferred to a full
+  version; the proofs here are written out for this project.
 
 ### 2.3 CFR+
 
@@ -669,7 +906,7 @@ Games and equilibrium computation
 - Hart, S., & Mas-Colell, A. (2000). A simple adaptive procedure leading to correlated equilibrium.
   *Econometrica*.
 - Zinkevich, M., Johanson, M., Bowling, M., & Piccione, C. (2007). Regret minimization in games with
-  incomplete information. *NIPS*.
+  incomplete information. *NIPS 20*, 1729–1736. **(checked)**
 - Johanson, M., Waugh, K., Bowling, M., & Zinkevich, M. (2011). Accelerating best response
   calculation in large extensive games. *IJCAI*.
 - Johanson, M., Bard, N., Lanctot, M., Gibson, R., & Bowling, M. (2012). Efficient Nash equilibrium
