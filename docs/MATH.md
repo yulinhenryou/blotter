@@ -48,14 +48,117 @@ utility $u_i(\sigma) = \sum_{z \in Z} \pi^\sigma(z)\, u_i(z)$.
 
 ### 1.2 Kuhn poker
 
-Three cards (J, Q, K), ante 1 each, one card per player, one betting round with a single bet of
-size 1. Known result: the game value for the first player is $-1/18$, and the first player's
-equilibria form a one-parameter family (bet J with probability $\alpha \in [0, 1/3]$, bet K with
-probability $3\alpha$, call a bet with Q with probability $\alpha + 1/3$, …).
+**Rules.** Three cards J < Q < K; each player antes 1 and receives one card (the six deals are
+equally likely, probability 1/6 each). One betting round with a single bet of size 1:
 
-- **[Derive]** the full equilibrium family and the value $-1/18$ by hand. This gives a closed-form
-  test target for the CFR implementation (value and strategy structure).
-- Reference: Kuhn (1950).
+- P1 checks or bets.
+- After a check, P2 checks (showdown) or bets; facing that bet, P1 folds or calls.
+- After a bet, P2 folds or calls.
+
+Utilities are net chips for P1 (P2 gets the negative): showdown after check–check $\pm 1$;
+showdown after a called bet $\pm 2$; a fold loses the ante, so the bettor wins $+1$. Each player has
+two information sets per card (P1: opening, facing check–bet; P2: after a check, facing a bet),
+12 in total; there are 5 betting sequences per deal, so 30 terminal histories.
+
+**Step 1 — dominated choices.** These hold whatever the opponent does:
+
+- Facing a bet, K calls (it always wins the showdown) and J folds (it always loses).
+- P2 after a check: K bets (checking wins 1; betting wins at least 1, and 2 if called). Q checks:
+  a bet is called only by K (−2 instead of −1) and folded by J (+1, the same as checking).
+
+What remains are five mixing probabilities:
+
+| Symbol | Probability that … |
+|---|---|
+| $\alpha$ | P1 bets with J |
+| $\gamma$ | P1 bets with K |
+| $\beta$ | P1 calls with Q after check–bet |
+| $\eta$ | P2 calls a bet with Q |
+| $\xi$ | P2 bets with J after a check |
+
+We look for an equilibrium in which P1 never bets Q (justified in Step 3). Each mixing probability
+is pinned down by the **opponent's** indifference: a player mixes between two actions only if
+they have equal expected value. In conditions 1, 2 and 5 the values are sums over the
+opponent's possible cards weighted by how often the opponent reaches this point with each card
+(unnormalized; normalizing does not change which action is better).
+
+**Step 2 — indifference conditions.**
+
+1. *P2 holds Q and faces a bet* (sets $\gamma$). P1's betting range is J (weight $\alpha$) or K
+   (weight $\gamma$). Calling: $2\alpha - 2\gamma$; folding: $-(\alpha + \gamma)$. Equal iff
+   $\gamma = 3\alpha$.
+2. *P2 holds J after a check* (sets $\beta$). P1's checking range is Q (weight 1) or K (weight
+   $1 - \gamma$). Betting: against Q, P1 calls with probability $\beta$, so
+   $\beta(-2) + (1-\beta)(+1) = 1 - 3\beta$; against K, $-2$; total $(1 - 3\beta) - 2(1-\gamma)$.
+   Checking loses every showdown: $-1 - (1 - \gamma)$. Equal iff $3\beta = 1 + \gamma$, i.e.
+   $\beta = \alpha + 1/3$.
+3. *P1 holds J* (sets $\eta$). Betting: against Q, $\eta(-2) + (1-\eta)(+1) = 1 - 3\eta$; against
+   K, $-2$; value $(-1 - 3\eta)/2$. Checking: against Q, showdown $-1$; against K, P2 bets and P1
+   folds, $-1$; value $-1$. Equal iff $\eta = 1/3$.
+4. *P1 holds K* (sets $\xi$). Betting: against J, P2 folds, $+1$; against Q, $1 + \eta$; value
+   $(2 + \eta)/2$. Checking: against J, P2 bets with $\xi$ and P1 calls, $1 + \xi$; against Q, P2
+   checks, $+1$; value $(2 + \xi)/2$. Equal iff $\xi = \eta = 1/3$.
+5. *P1 holds Q and faces a bet* (consistency). P2's betting range is K (weight 1) or J (weight
+   $\xi$). Calling: $-2 + 2\xi$; folding: $-(1 + \xi)$. Equal iff $\xi = 1/3$ — consistent with 4.
+
+Since $\gamma = 3\alpha$ is a probability, $\alpha \in [0, 1/3]$.
+
+**Result (the equilibrium family).** For every $\alpha \in [0, 1/3]$:
+
+| | J | Q | K |
+|---|---|---|---|
+| P1 opening | bet $\alpha$ | check | bet $3\alpha$ |
+| P1 facing check–bet | fold | call $\alpha + 1/3$ | call |
+| P2 after a check | bet $1/3$ | check | bet |
+| P2 facing a bet | fold | call $1/3$ | call |
+
+**Step 3 — why P1 never bets Q.** Against P2's strategy above, with P1 holding Q:
+
+- Betting: J folds ($+1$), K calls ($-2$); value $-1/2$.
+- Checking: against J, P2 bluffs with $1/3$ (then P1 calls with $\beta$: $3\beta - 1$) and checks
+  with $2/3$ ($+1$), giving $\beta + 1/3$; against K, P2 bets and P1 gets $-2\beta - (1 - \beta) =
+  -1 - \beta$. Value $\tfrac12\big((\beta + \tfrac13) + (-1 - \beta)\big) = -1/3$, for every
+  $\alpha$ (P1 is indifferent between calling and folding with Q, so the value equals that of
+  check–fold).
+
+$-1/2 < -1/3$, so betting Q is a strictly worse deviation.
+
+**Verification that the family is an equilibrium.** Every remaining deviation was checked above
+or in Step 1: P1's J and K are indifferent (conditions 3, 4), Q strictly prefers checking (Step 3)
+and is indifferent facing a bet (condition 5); P2's Q facing a bet and J after a check are
+indifferent (conditions 1, 2); the dominated choices of Step 1 are strict, except P2's Q after a
+check when $\alpha = 1/3$ (P1 then never checks K, and betting Q ties with checking). When
+$\alpha = 0$, P2's facing-bet information sets are never reached, but $\eta = 1/3$ is still
+needed: conditions 3 and 4 give $\eta \ge 1/3$ and $\eta \le \xi = 1/3$, so P1 has no profitable
+bet.
+
+**Step 4 — the value $-1/18$.** Take $\alpha = 0$: P1 always checks; folds J, calls Q with 1/3
+and calls K when bet into.
+
+| P1 / P2 | Play | P1 value |
+|---|---|---|
+| J / Q | P2 checks; showdown | $-1$ |
+| J / K | P2 bets; P1 folds | $-1$ |
+| Q / J | P2 bluffs w.p. 1/3 (P1 calls 1/3: $\tfrac13 \cdot 2 + \tfrac23 \cdot (-1) = 0$); checks w.p. 2/3 ($+1$) | $+2/3$ |
+| Q / K | P2 bets; P1 calls 1/3 ($-2$), folds 2/3 ($-1$) | $-4/3$ |
+| K / J | P2 bluffs w.p. 1/3, P1 calls ($+2$); checks w.p. 2/3 ($+1$) | $+4/3$ |
+| K / Q | P2 checks; showdown | $+1$ |
+
+The sum is $-1/3$; times $1/6$, the value for P1 is $\mathbf{-1/18}$. It does not depend on
+$\alpha$: P2's strategy is the same for every $\alpha$, and P1 is indifferent between betting and
+checking with J and with K, so any $\alpha$ gives P1 the same value.
+
+**Cited, not derived here.** That this family contains *all* of P1's equilibrium strategies, and
+that P2's equilibrium strategy is unique, is Kuhn's (1950) result; it is stated the same way in
+the Wikipedia article "Kuhn poker" (checked 2026-11-04), which gives no inline source. Not yet
+checked against Kuhn's original paper. The test of "P1 never bets Q" (ROADMAP M1, AC2) relies on
+it: in a two-player zero-sum game every equilibrium strategy of P1 is a best response to every
+equilibrium strategy of P2, and against P2's unique strategy betting Q is strictly worse (Step 3).
+
+**Test targets** (ROADMAP M1): value $-1/18$; at $\alpha = 0$ and $\alpha = 1/6$ the profile above
+has exploitability exactly 0 in rational arithmetic; CFR's average strategy approaches the family
+(P1: Q never bets, $P(\text{bet} \mid K) - 3\,P(\text{bet} \mid J) \to 0$,
+$P(\text{call} \mid Q) - P(\text{bet} \mid J) \to 1/3$; P2: $\eta, \xi \to 1/3$).
 
 ### 1.3 Leduc Hold'em
 
