@@ -54,8 +54,9 @@ How we will know the decision works (test, benchmark, measurement).
 | 0014 | Project license: dual MIT / Apache-2.0 | Accepted |
 | 0015 | Two independent CFR implementations, cross-validated | Accepted |
 | 0016 | Roadmap ordering adjustments | Accepted |
-| 0017 | Repository visibility: private until M0 closes | Accepted |
+| 0017 | Repository visibility: private until M0 closes | Superseded by 0019 |
 | 0018 | Toolchain and dependency versions pinned in M0 | Accepted |
+| 0019 | Public repository with rewritten commit identities | Accepted |
 
 All records below dated 2026-11-03. Proposals 0004 (data format), 0006 (SQLAlchemy + Alembic),
 0007 (details), 0008, 0012, 0013, 0015 and 0016 were accepted by Henry on 2026-11-03; ADR-0014
@@ -250,7 +251,8 @@ early; (B) split turn subgames out of M2 into a later M2b.
 
 ## ADR-0017: Repository visibility — private until M0 closes
 
-- Status: Accepted (Henry delegated the choice to Claude, 2026-11-03)
+- Status: Superseded by ADR-0019 (originally accepted: Henry delegated the choice to Claude,
+  2026-11-03)
 
 **Context.** The GitHub repository `yulinhenryou/blotter` was created on 2026-11-03. Henry left the
 choice between public and private to Claude.
@@ -305,3 +307,29 @@ automatic fix is a breaking downgrade of typescript-eslint. Revisit when upstrea
 (`[tool.uv] cache-keys`), checked by changing `solver::engine_version` and observing the new value
 from Python.
 
+## ADR-0019: Public repository with rewritten commit identities
+
+- Status: Accepted (Henry, 2026-11-04)
+- Date: 2026-11-04
+
+**Context.** M0 closed on 2026-11-04, which was the revisit point of ADR-0017. Henry decided to
+make the repository public. Seven commits in the private history carried a personal e-mail
+address as author and committer. Rewriting `main` alone would not remove it: GitHub keeps
+read-only `refs/pull/<n>/head` references for every pull request (#1–#3), and they still point to
+the original commits.
+
+**Decision.**
+- Rewrite the author and committer identity of those commits to `Henry Ou` with Henry's GitHub
+  no-reply address (`git filter-branch --env-filter`). Trees are unchanged: the rewritten `main`
+  has the same tree as before.
+- Rename the original repository to `yulinhenryou/blotter-private-archive` and keep it private
+  (not deleted). It holds PRs #1–#3 and the M0 CI runs.
+- Create a new public repository `yulinhenryou/blotter` and push the rewritten `main` to it.
+- The local clone sets `user.name` / `user.email` to the no-reply identity.
+
+**Commit mapping** (archive → public) for hashes cited in the docs: merge of PR #1 `ba66add` →
+`245c99a`; merge of PR #3 `625bb34` → `a90b919`.
+
+**Consequences.** PR numbers and CI run links from M0 refer to the archive repository, which is
+private. Merge-commit messages in the public history mention PR numbers of the archive, not of the
+public repository. New PRs in the public repository start again at #1.

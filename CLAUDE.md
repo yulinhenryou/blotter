@@ -114,8 +114,8 @@ fails if the name appears anywhere else, or if the declared names below disagree
 | `CLAUDE.md` | This notice and checklist |
 | `README.md` | Title and opening paragraph |
 | `docs/VISION.md` | Title and opening paragraph |
-| `docs/DECISIONS.md` | ADR-0011 (naming policy), ADR-0017 (repository) |
-| Local folder `~/Desktop/Blotter`; GitHub repository `yulinhenryou/blotter` (name and description) | Outside the repository; GitHub redirects after a rename |
+| `docs/DECISIONS.md` | ADR-0011 (naming policy), ADR-0017 and ADR-0019 (repository) |
+| Local folder `~/Desktop/Blotter`; GitHub repository `yulinhenryou/blotter` (name and description); private archive `yulinhenryou/blotter-private-archive` | Outside the repository; GitHub redirects after a rename |
 | `Cargo.toml` (workspace) | **No occurrence by design** — crates are named `cards`, `solver`, `bindings` |
 
 Note: the tagline "A trading blotter for your poker decisions" uses *blotter* as a common noun.
