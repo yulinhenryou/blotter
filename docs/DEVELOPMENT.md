@@ -89,6 +89,16 @@ cd web && npm run gen:api                                   # regenerate src/api
 A Python test fails if `web/openapi.json` is stale; `npm run check:api` fails if the TypeScript
 types are stale.
 
+## Results and plots
+
+Measured outputs live in `docs/results/`, each with the command that produced it in
+`docs/results/README.md`. Plotting scripts need the optional `plots` dependency group
+(ADR-0022), which `uv sync` does not install:
+
+```bash
+uv run --project python --group plots python scripts/plot_leduc_convergence.py docs/results/m1-leduc-convergence.csv docs/results/m1-leduc-convergence.svg
+```
+
 ## Running the app locally
 
 Two terminals:
