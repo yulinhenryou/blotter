@@ -21,6 +21,9 @@ dev = [
     "pytest>=9.2.0",
     "ruff>=0.17.3",
 ]
+plots = [
+    "matplotlib>=3.11.2",
+]
 
 [tool.maturin]
 manifest-path = "../crates/bindings/Cargo.toml"

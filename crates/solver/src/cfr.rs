@@ -479,6 +479,7 @@ mod tests {
     use super::*;
     use crate::best_response::{expected_value, exploitability};
     use crate::games::kuhn::Kuhn;
+    use crate::games::leduc::Leduc;
     use crate::tree::InfosetId;
 
     const VARIANTS: [Variant; 3] = [Variant::Vanilla, Variant::CfrPlus, Variant::DCFR];
@@ -711,6 +712,30 @@ mod tests {
                     Variant::Dcfr { .. } => {}
                 }
             }
+        }
+    }
+
+    /// AC4: on Leduc, every variant's average strategy is less exploitable after 100 iterations
+    /// than after 10, and both values respect the regret bound of `docs/MATH.md` §2.3. The run
+    /// recorded in `docs/results/` measured, at 10 and 100 iterations: CFR 0.927 and 0.173,
+    /// CFR+ 0.520 and 0.0134, DCFR 0.713 and 0.00755 chips. The counts keep the test fast in a
+    /// debug build and stay away from the first iterations, where exploitability can rise (it
+    /// does from 1 to 2 iterations for CFR+ and DCFR).
+    #[test]
+    fn leduc_exploitability_decreases_for_every_variant() {
+        let tree = GameTree::build(&Leduc).unwrap();
+        for variant in VARIANTS {
+            let mut cfr = solver(&tree, variant);
+            cfr.run(10);
+            let early = exploitability_of_average(&tree, &cfr);
+            assert!(early <= weighted_regret_bound(&cfr) + 1e-12, "{variant:?}");
+            cfr.run(90);
+            let late = exploitability_of_average(&tree, &cfr);
+            assert!(late <= weighted_regret_bound(&cfr) + 1e-12, "{variant:?}");
+            assert!(
+                late < early,
+                "{variant:?}: {late} after 100, {early} after 10"
+            );
         }
     }
 
