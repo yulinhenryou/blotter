@@ -3,7 +3,7 @@
 //! M1 (see `docs/plans/M1.md`): a generic game description ([`game`]), its flattened tree
 //! ([`tree`]), small validation games ([`games`]), strategy profiles ([`strategy`]) and exact best
 //! response and exploitability ([`best_response`]), generic over the number type ([`value`]);
-//! regret matching ([`regret`]) and vanilla CFR ([`cfr`]).
+//! regret matching ([`regret`]) and CFR with its variants CFR+ and DCFR ([`cfr`]).
 
 pub mod best_response;
 pub mod cfr;

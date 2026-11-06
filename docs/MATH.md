@@ -457,24 +457,370 @@ Observations from these numbers:
   version: eqs. 3–8 and Theorems 2–4 as cited above. The proofs there are deferred to a full
   version; the proofs here are written out for this project.
 
-### 2.3 CFR+
+### 2.3 CFR+ and alternating updates
 
-Changes: (1) regret-matching$^+$ — cumulative regrets clipped at zero after every update,
-$R^{+,T}(I,a) = \max\big(R^{+,T-1}(I,a) + r^T(I,a),\, 0\big)$; (2) alternating updates between
-players; (3) linearly weighted averaging of the strategy (weight $t$ on iteration $t$).
+CFR+ (Tammelin 2014; Tammelin, Burch, Johanson & Bowling 2015) changes three things in vanilla
+CFR: regret matching$^+$ instead of regret matching, alternating instead of simultaneous updates,
+and an average weighted by $t$. Neither algorithm samples; the whole tree is walked every
+iteration.
 
-- Reference: Tammelin (2014); Tammelin, Burch, Johanson & Bowling (2015).
+**Regret matching$^+$.** Store *regret-like values* $Q$ instead of regrets:
+
+$$Q^0(a) = 0, \qquad Q^t(a) = \big(Q^{t-1}(a) + r^t(a)\big)^+,$$
+
+and play regret matching on $Q$ (§2.1). Negative regret is forgotten at once, so an action that
+becomes good is played again as soon as its regret turns positive. Regret matching must first pay
+back all the negative regret it has accumulated. (This is the intuition Tammelin et al. 2015
+give. Their Theorem 2 is a *tracking-regret* bound for RM$^+$, which is only a partial
+explanation and is not used here.)
+
+**Lemma 1** (Tammelin et al. 2015, Lemma 1). $Q^t(a) - Q^{t-1}(a) \ge r^t(a)$, so
+$Q^T(a) \ge R^T(a)$.
+*Proof.* $Q^t(a) = \max\big(Q^{t-1}(a) + r^t(a), 0\big) \ge Q^{t-1}(a) + r^t(a)$. Sum over $t$. ∎
+
+**Lemma 2** (Tammelin et al. 2015, Lemma 2). If $|r^t(a)| \le \Delta$, then
+$Q^T(a) \le \Delta\sqrt{|A|\,T}$.
+*Proof.* As in §2.1, with $\Phi = \sum_a Q(a)^2$. Step 1 still holds:
+$\sum_a Q^{t-1}(a)\, r^t(a) = 0$. Step 2 is easier: $Q^{t-1} \ge 0$, so
+$\big((Q^{t-1} + r)^+\big)^2 \le (Q^{t-1} + r)^2$. ∎
+
+**Alternating updates.** Iteration $t$ is two passes (Tammelin 2014, Algorithm 1; Burch,
+Moravčík & Schmid 2019, eq. 16):
+
+1. P1's pass. The profile is $(\sigma^t_1, \sigma^t_2)$. Update P1's values with the instantaneous
+   regrets $r^t$ of this profile. Add $w_t\, \pi_2(I)\, \sigma^t_2(I, a)$ to P2's strategy sums.
+2. P2's pass. Regret matching on P1's *new* values gives $\sigma^{t+1}_1$. The profile is
+   $(\sigma^{t+1}_1, \sigma^t_2)$. Update P2's values. Add $w_t\, \pi_1(I)\, \sigma^{t+1}_1(I, a)$ to
+   P1's strategy sums.
+
+So each player's average is built from exactly the strategies the *other* player's regrets were
+computed against. For CFR+, $w_t = t$. In `crates/solver/src/cfr.rs` each pass first computes the
+whole profile, then reach, values and updates, as in §2.2. Every history of an information set
+therefore sees the same strategy, which is the vector-form semantics of Tammelin's algorithm.
+
+**Why the proof of §2.2 does not carry over.** Theorem 1 of §2.2 needs both players' regrets to
+refer to the same profiles. With alternating updates, P1's regret pairs $\sigma^t_1$ with
+$\sigma^t_2$, but P2's pairs $\sigma^{t+1}_1$ with $\sigma^t_2$. The original CFR+ correctness proof
+(Tammelin et al. 2015, Theorem 3) overlooked this. Farina, Kroer & Sandholm (2019) gave a sequence
+of alternating updates with zero regret for both players but constant exploitability (as reported
+by Burch et al. 2019, Observation 1). Burch et al. repaired the proof; the next three results
+follow their argument, with weights and with a shorter proof of Lemma 4.
+
+**Theorem 3** (Burch et al. 2019, Theorem 1, here with weights $w_t \ge 0$, $W = \sum_t w_t$).
+Let
+
+- $R_1^w = \max_{\sigma'_1} \sum_t w_t \big(u_1(\sigma'_1, \sigma^t_2) - u_1(\sigma^t_1, \sigma^t_2)\big)$,
+- $R_2^w = \max_{\sigma'_2} \sum_t w_t \big(u_2(\sigma^{t+1}_1, \sigma'_2) - u_2(\sigma^{t+1}_1, \sigma^t_2)\big)$,
+- $\bar\sigma_1$ be the own-reach-weighted $w$-average of $\sigma^{t+1}_1$ and $\bar\sigma_2$ that of
+  $\sigma^t_2$, as the passes above accumulate them.
+
+Then
+
+$$e(\bar\sigma) = \frac{R_1^w + R_2^w}{2W} - \frac1{2W} \sum_t w_t \Big(u_1(\sigma^{t+1}_1, \sigma^t_2) - u_1(\sigma^t_1, \sigma^t_2)\Big).$$
+
+*Proof.* Lemma 1 of §2.2 holds with weights: replace $\frac1T \sum_t$ by $\frac1W \sum_t w_t$ in
+its proof. So $u_1(\sigma'_1, \bar\sigma_2) = \frac1W \sum_t w_t\, u_1(\sigma'_1, \sigma^t_2)$. Taking
+the maximum gives $b_1(\bar\sigma_2) = R_1^w / W + \frac1W \sum_t w_t\, u_1(\sigma^t_1, \sigma^t_2)$.
+In the same way,
+$b_2(\bar\sigma_1) = R_2^w / W - \frac1W \sum_t w_t\, u_1(\sigma^{t+1}_1, \sigma^t_2)$, using
+$u_2 = -u_1$. Add the two and halve. ∎
+
+With simultaneous updates, $\sigma^{t+1}_1$ is replaced by $\sigma^t_1$ everywhere, the last sum
+vanishes, and $w_t = 1$ gives Theorem 1 of §2.2. With alternating updates the last sum is P1's
+*improvement*: how much P1's update gained against the very strategy it was computed from. The
+next lemma shows it is never negative.
+
+**Lemma 4** (updates never hurt; the result of Burch et al. 2019, Theorems 5 and 7). Take any of the
+update rules of this section and §2.4. The stored value becomes $D' = c(x)\, x$ with
+$x = D + r$, where $c(x) > 0$ for $x > 0$ and $c(x) \ge 0$ otherwise. Let $\sigma = \mathrm{RM}(D)$
+produce the values $v$, let $r(a) = v(a) - \sigma \cdot v$, and let $\sigma' = \mathrm{RM}(D')$. Then:
+
+(a) **One decision:** $\sigma' \cdot r \ge 0$, i.e. $\sigma' \cdot v \ge \sigma \cdot v$.
+
+(b) **Whole game:** if player $i$ updates every information set this way from the counterfactual
+regrets of the profile $(\sigma_i, \sigma_{-i})$, then $u_i(\sigma'_i, \sigma_{-i}) \ge u_i(\sigma_i, \sigma_{-i})$.
+
+*Proof of (a).*
+
+- $\sigma' = \mathrm{RM}(x)$: the positive part of $D'$ is the positive part of $x$, scaled by
+  positive factors that are equal across actions (one factor per sign per iteration).
+- $\sum_a D^+(a)\, r(a) = 0$. If $D^+ \neq 0$, then $\sigma \propto D^+$ and $\sigma \cdot r = 0$.
+  Otherwise every term is 0.
+- $y \mapsto y^+$ is non-decreasing, so $x^+(a) - D^+(a)$ has the sign of $r(a)$. Hence
+  $\sum_a x^+(a)\, r(a) \ge \sum_a D^+(a)\, r(a) = 0$. If $\sum_a x^+(a) > 0$, divide by it.
+- If $x^+ = 0$, then $D^+ = 0$ as well. Otherwise every $a$ with $D(a) > 0$ has
+  $r(a) \le -D(a) < 0$, so $\sum_a D^+(a)\, r(a) < 0$, a contradiction. So $\sigma$ and $\sigma'$
+  are both uniform, and $\sigma' \cdot r = \sigma \cdot r = 0$. ∎
+
+*Proof of (b)* (a performance-difference identity; Burch et al. instead prove that every action's
+counterfactual value does not decrease). Fix $\sigma_{-i}$. Let $\Delta(h) = u_i(\sigma', h) - u_i(\sigma, h)$.
+
+- At a node of $i$:
+  $\Delta(h) = \sum_a \sigma'(h, a)\, \Delta(h \cdot a) + \sum_a \big(\sigma'(h, a) - \sigma(h, a)\big)\, u_i(\sigma, h \cdot a)$.
+- At other nodes, $\Delta(h)$ is the probability-weighted sum of the children's $\Delta$.
+- At terminals it is 0.
+
+Unrolling from the root, each node of $i$ is reached with probability
+$\pi^{\sigma'}_i(h)\, \pi_{-i}(h)$. Grouping nodes by information set (perfect recall:
+$\pi^{\sigma'}_i(h) = \pi^{\sigma'}_i(I)$) gives
+
+$$u_i(\sigma'_i, \sigma_{-i}) - u_i(\sigma_i, \sigma_{-i}) = \sum_{I \in \mathcal{I}_i} \pi^{\sigma'}_i(I) \sum_a \sigma'(I, a)\, r(I, a),$$
+
+with $r(I, a) = v_i(\sigma, I, a) - v_i(\sigma, I)$ (§2.2). Each inner sum is $\ge 0$ by (a). ∎
+
+DCFR with $\alpha \ge 0$ has a factor of at least $1/2$ on positive values (§2.4). That is why the
+solver rejects $\alpha < 0$: with a negative $\alpha$, $t^{-\alpha}$ grows without bound and can overflow, which
+makes the factor $1/(1 + t^{-\alpha})$ exactly 0 in floating point.
+
+**Corollary (the bound checked for every variant).** Theorem 2 of §2.2 holds for weighted sums
+with the same proof: replace $\sum_t$ by $\sum_t w_t$. With Theorem 3 and Lemma 4:
+
+$$e(\bar\sigma) \;\le\; \frac1{2W} \sum_i \sum_{I \in \mathcal{I}_i} \max_a \Big(\sum_t w_t\, r^t(I, a)\Big)^+ .$$
+
+This holds for vanilla CFR ($w_t = 1$, simultaneous), CFR+ ($w_t = t$) and DCFR ($w_t = t^\gamma$,
+any $\alpha \ge 0$ and $\beta$). A test-only record in the solver accumulates
+$\sum_t w_t\, r^t(I, a)$ and $\sum_t w_t$. The property test checks the inequality against the
+independent best response (§2.7), on games with Kuhn's tree, random payoffs and random DCFR
+parameters.
+
+**CFR+'s bound from its stored values.** With $w_t = t$, Lemma 1 and Abel summation ($Q^0 = 0$):
+
+$$\sum_{t=1}^T t\, r^t(a) \;\le\; \sum_{t=1}^T t\,\big(Q^t(a) - Q^{t-1}(a)\big) \;=\; T\,Q^T(a) - \sum_{t=1}^{T-1} Q^t(a) \;\le\; T\,Q^T(a).$$
+
+Tammelin et al. (2015) get the same inequality from their Lemma 3 (bounded sequences with
+non-negative partial sums). With $W = T(T+1)/2$, the Corollary becomes
+
+$$e(\bar\sigma^T) \le \frac1{T+1} \sum_I \max_a Q^T(I, a) \le \frac{\Delta_u \sqrt{A_{\max}}\,\big(|\mathcal{I}_1| + |\mathcal{I}_2|\big)}{\sqrt T},$$
+
+the last step by Lemma 2. This is twice the vanilla bound of §2.2, the same rate as Tammelin et
+al., Theorem 3, and as Burch et al., Theorem 8. Linear weighting costs a constant factor in the
+worst case.
+
+**Hand computation: the first CFR+ iteration on Kuhn.**
+
+*P1's pass* is vanilla's (§2.2) for P1's information sets, floored at 0:
+
+- `J/`, `Q/`, `K/`: $(0, 1/8)$.
+- `J/pb`: $(1/12, 0)$.
+- `Q/pb`: $(0, 1/12)$, from $(-1/12, 1/12)$.
+- `K/pb`: $(0, 1/4)$, from $(-1/4, 1/4)$; facing a bet after checking, K wins 2 by calling and loses
+  1 by folding.
+
+P2's strategy sums receive $\sigma^1_2$ = uniform with weight 1 and own reach 1: $(1/2, 1/2)$
+everywhere.
+
+*P2's pass.* $\sigma^2_1$ bets every card, so P2's after-check sets `X/p` are unreachable:
+$\pi_{-2} = 0$ and their regrets stay $(0, 0)$. At the after-bet sets, every history has
+$\pi_{-2} = 1/6$ (chance only), and P2 mixes uniformly. Values are in P2's payoffs, with actions
+(fold, call):
+
+| P2 set | Histories (P1's card): fold, call | $v_2(I, \cdot)$ | $v_2(I)$ | $r^1$ | $Q^1$ |
+|---|---|---|---|---|---|
+| `J/b` | Q: $-1$, $-2$; K: $-1$, $-2$ | $-1/3$, $-2/3$ | $-1/2$ | $(1/6, -1/6)$ | $(1/6, 0)$ |
+| `Q/b` | J: $-1$, $+2$; K: $-1$, $-2$ | $-1/3$, $0$ | $-1/6$ | $(-1/6, 1/6)$ | $(0, 1/6)$ |
+| `K/b` | J: $-1$, $+2$; Q: $-1$, $+2$ | $-1/3$, $2/3$ | $1/6$ | $(-1/2, 1/2)$ | $(0, 1/2)$ |
+
+P1's strategy sums receive $\sigma^2_1$ with weight 1. At the openings that is $(0, 1)$. The
+after-check sets `X/pb` get $(0, 0)$: their own reach under $\sigma^2_1$ is
+$P(\text{check}) = 0$. Test: `cfr_plus_first_iteration_matches_hand_computation`.
+
+**Cross-check.** An independent recursive implementation of Tammelin (2014), Algorithm 1, in
+exact rational arithmetic (outside the repository) produced every stored value and strategy sum:
+
+- for CFR+ after two iterations;
+- for DCFR(1, 0, 2) after three iterations. Its factors $t/(t+1)$ and $1/2$ and weights $t^2$ are
+  rational, and negative values occur.
+
+The test `alternating_variants_match_exact_runs` compares the solver with these fractions
+(tolerance $10^{-15}$ relative).
+
+**Test targets.**
+
+- The hand table and the cross-check above.
+- The Corollary for every variant, and $e \le \sum_I \max_a Q^T(I,a) / (T+1)$ for CFR+.
+- AC5 extended: $Q \ge 0$; $Q^T(I, a) \le \Delta_u \sqrt{|A(I)|\,T}$;
+  $\sum_t t\, r^t(I, a) \le T\, Q^T(I, a)$.
+- Kuhn AC1/AC2. Measurements and tolerances are in §2.4, next to DCFR's.
+
+**Mutation check** (done while writing the tests; not repeated in CI). Seven deliberate bugs
+were injected one at a time, and each made at least one test fail:
+
+- P2 updating against P1's old strategy;
+- alternating passes adding the updating player's own strategy sums;
+- uniform instead of linear CFR+ weights;
+- no floor in CFR+;
+- DCFR discounting before adding $r^t$;
+- weight $t$ instead of $t^\gamma$;
+- $\alpha$ and $\beta$ swapped.
+
+Two of the results are instructive:
+
+- **Own strategy sums** pass Kuhn's AC1 and AC2 and are caught only by the Corollary's property
+  test and the exact fixtures.
+- **P2 against P1's old strategy** passes the Corollary, because it is a different but also sound
+  algorithm (simultaneous CFR+). Only the fixtures catch it.
+
+The bounds check soundness; the fixtures check that the code is the algorithm specified.
+
+- References: Tammelin (2014), checked (definitions and Algorithm 1). Tammelin et al. (2015),
+  checked (the four changes, Lemmas 1–2 and Theorem 3 with their proofs). Burch, Moravčík &
+  Schmid (2019), checked (eq. 16, Theorems 1, 5, 7 and 8).
 
 ### 2.4 Discounted CFR (DCFR)
 
-On iteration $t$, multiply accumulated positive regrets by $t^\alpha / (t^\alpha + 1)$, negative
-regrets by $t^\beta / (t^\beta + 1)$, and the contributions to the average strategy by
-$\big(t / (t+1)\big)^\gamma$. The authors' recommended setting is $\alpha = 3/2$, $\beta = 0$,
-$\gamma = 2$; CFR+ and Linear CFR are related special/limiting cases.
+**Definition** (Brown & Sandholm 2019). On every iteration $t$:
 
-- **[Derive]** why discounting early iterations helps; which parameter settings recover which
-  variant. **[Measure]** compare CFR, CFR+, DCFR on Leduc (plot from real runs only).
-- Reference: Brown & Sandholm (2019).
+- multiply the accumulated positive regrets by $t^\alpha / (t^\alpha + 1)$;
+- multiply the negative ones by $t^\beta / (t^\beta + 1)$;
+- multiply the contributions to the average strategy by $\big(t / (t+1)\big)^\gamma$.
+
+The authors recommend $\alpha = 3/2$, $\beta = 0$, $\gamma = 2$. All their experiments use
+alternating updates, and so does the solver.
+
+*When the discount is applied.* The paper says that multiplying "iteration $t$'s regret and
+contribution to the average strategy by $t'/(t'+1)$ on every iteration $t \le t' < T$" weighs
+iteration $t$ by $t/T$. So iteration $t$'s own regret is already discounted on iteration $t$:
+
+$$D^t(I, a) = x \cdot \begin{cases} t^\alpha / (t^\alpha + 1) & x > 0 \\ t^\beta / (t^\beta + 1) & x \le 0 \end{cases}, \qquad x = D^{t-1}(I, a) + r^t(I, a).$$
+
+*Average weights.* Contribution $c_t$ ends up multiplied by
+$\prod_{t'=t}^{T} \big(t'/(t'+1)\big)^\gamma = \big(t/(T+1)\big)^\gamma$, a telescoping product.
+After normalization the average weighs iteration $t$ by $t^\gamma$. The solver adds
+$t^\gamma c_t$ directly, which gives the same normalized average without rescaling the table
+every iteration. For $\gamma = 2$ and $T = 10^5$ the weights reach $10^{10}$, far below `f64`'s
+range.
+
+*Regret weights.* If a regret keeps its sign, iteration $t$ ends up weighted by
+$\prod_{t'=t}^{T} 1/(1 + t'^{-\alpha})$.
+
+- $\alpha = 1$ gives $t/(T+1)$: linear weighting. DCFR(1, 1, 1) is Linear CFR (LCFR) in the
+  paper.
+- For $\alpha > 1$, $\sum_t t^{-\alpha} < \infty$, so the product stays bounded away from 0. Early
+  iterations keep a fixed fraction of their weight, and the discount acts mainly in the first
+  iterations.
+- For $\alpha \le 1$, early iterations' weight goes to 0.
+
+*Negative regrets.* $\beta = 0$ halves them every iteration. $\beta = -\infty$ sets them to 0
+(from $t = 2$), as in CFR+.
+
+**One update rule for all variants.** With $x = D + r^t$, the stored value becomes
+$x \cdot p_t$ if $x > 0$ and $x \cdot n_t$ otherwise, and the strategy enters the sums with weight
+$w_t$:
+
+| Variant | $p_t$ | $n_t$ | $w_t$ | Updates |
+|---|---|---|---|---|
+| CFR (§2.2) | 1 | 1 | 1 | simultaneous |
+| CFR+ (§2.3) | 1 | 0 | $t$ | alternating |
+| DCFR($\alpha, \beta, \gamma$) | $1/(1 + t^{-\alpha})$ | $1/(1 + t^{-\beta})$ | $t^\gamma$ | alternating |
+
+This is the single `match` in `Variant::schedule`. Writing the factor as $1/(1 + t^{-x})$ instead of
+$t^x/(t^x+1)$ makes $x = \pm\infty$ evaluate to the limits 1 and 0 instead of $\infty/\infty$.
+
+**Which settings recover which variant.**
+
+- CFR+ is DCFR($\infty, -\infty, 1$) except at $t = 1$. There every exponent gives the factor
+  $1^x/(1^x + 1) = 1/2$, so DCFR halves both signs instead of flooring. The runs differ from then
+  on, so this is a limit, not an identity.
+- The paper writes CFR+ $=$ DCFR($\infty, -\infty, 2$) because the paper's CFR+ weighs the average
+  by $t^2$: the authors found that faster and used it throughout. The solver's CFR+ keeps
+  Tammelin's weight $t$.
+- Vanilla CFR is DCFR($\infty, \infty, 0$) apart from the same factor $1/2$ at $t = 1$. Here that
+  only halves iteration 1's regret, but DCFR also alternates.
+
+**Lemma 5** ($\beta \le 0$ bounds negative regrets). If $\beta \le 0$, then
+$D^t(I, a) \ge -\Delta_u$ for all $t$.
+*Proof.* $|r^t(I, a)| \le \Delta_u$ (§2.2, *Combined bound*). By induction, $x \ge -2\Delta_u$. If
+$x \le 0$, the factor is $1/(1 + t^{-\beta}) \le 1/2$, because $t^{-\beta} \ge 1$; so
+$D^t \ge -\Delta_u$. If $x > 0$, then $D^t > 0$. ∎
+
+Brown & Sandholm use the pre-discount form, $-2\Delta$, in their proof of Theorem 2. A bounded
+negative regret means a suboptimal action that becomes good again needs at most a bounded number
+of iterations to be played. Their motivating example: three actions with fixed payoffs
+$0, 1, -10^6$. CFR+ needs 471,407 iterations to play the best action with probability 1, and
+LCFR needs 970 (as reported). A direct re-run outside the repository gives 471,406 and 971
+iterations after which the next strategy is pure. The off-by-one differences are counting
+conventions, which we did not pin down.
+
+**Convergence.** Brown & Sandholm (2019, Theorem 2) prove that DCFR($3/2, 0, 2$)'s weighted
+average is a $6\Delta|\mathcal{I}|\big(\sqrt{|A|} + 1/\sqrt T\big)/\sqrt T$-Nash equilibrium. The
+proof (their appendix) bounds each information set's weighted regret for *any* value sequence,
+so it applies to each player's regrets under alternating updates too. The link to exploitability
+under alternating updates is Theorem 3 with Lemma 4 above. We use their rate as stated and do not
+re-derive it. The test checks the Corollary of §2.3, which needs no rate.
+
+**Test targets.**
+
+- The cross-check of §2.3: DCFR(1, 0, 2) against exact fractions.
+- Lemma 5 for $\beta \le 0$, and the Corollary of §2.3 with random parameters (property test).
+- The limits $\alpha = \infty$, $\beta = -\infty$: no NaN, values floored at 0 from $t = 2$.
+- Rejected parameters: $\alpha$ NaN or $< 0$; $\beta$ NaN; $\gamma$ NaN, $< 0$ or infinite.
+- Kuhn AC1/AC2.
+
+**Measurements** (Kuhn, average strategy unless noted). Command:
+`cargo test -p solver --release print_kuhn_measurements -- --ignored --nocapture`. Code as in the
+commit that adds this section (parent `519f769`); rustc 1.99.1, Apple M4. The runs are
+deterministic, and debug and release builds print identical numbers. The vanilla rows equal those
+of §2.2.
+
+| $T$ | CFR $e$ | CFR+ $e$ | DCFR $e$ | CFR+ Corollary bound | CFR+ stored-value bound | DCFR Corollary bound |
+|---|---|---|---|---|---|---|
+| 10 | 9.621e-2 | 2.884e-2 | 2.515e-2 | 5.698e-2 | 2.279e-1 | 5.158e-2 |
+| 100 | 2.567e-2 | 9.575e-4 | 1.799e-3 | 3.154e-3 | 2.992e-2 | 4.457e-3 |
+| 1,000 | 7.269e-3 | 7.130e-5 | 1.518e-4 | 4.376e-4 | 3.920e-3 | 5.236e-4 |
+| 10,000 | 2.318e-3 | 9.089e-6 | 2.257e-5 | 9.312e-5 | 6.111e-4 | 8.482e-5 |
+| 100,000 | 6.762e-4 | 2.154e-6 | 7.088e-7 | 1.587e-5 | 9.735e-5 | 1.193e-5 |
+
+| $T$ | CFR+ $u_1 + \tfrac1{18}$ | DCFR $u_1 + \tfrac1{18}$ | CFR+ current $e$ | DCFR current $e$ | CFR+ $P(\text{bet} \mid Q)$ | DCFR $P(\text{bet} \mid Q)$ |
+|---|---|---|---|---|---|---|
+| 10 | 3.573e-3 | 3.846e-3 | 3.897e-2 | 9.933e-2 | 1.436e-1 | 6.877e-2 |
+| 100 | 2.601e-5 | 1.871e-5 | 4.062e-2 | 3.042e-2 | 1.564e-3 | 7.825e-5 |
+| 1,000 | 1.816e-7 | 4.399e-8 | 1.943e-2 | 2.370e-2 | 1.578e-5 | 7.931e-8 |
+| 10,000 | 1.768e-9 | −3.855e-9 | 8.542e-3 | 1.277e-2 | 1.579e-7 | 7.942e-11 |
+| 100,000 | 5.924e-11 | 5.357e-12 | 3.519e-3 | 5.831e-3 | 1.579e-9 | 7.943e-14 |
+
+Equilibrium-structure deviations at $T = 10^4$ (§1.2; $\alpha = P(\text{bet} \mid J)$):
+
+| Variant | $P(\text{bet} \mid K) - 3\alpha$ | $P(\text{call} \mid Q, pb) - \alpha - \tfrac13$ | $\eta - \tfrac13$ | $\xi - \tfrac13$ | $\alpha$ |
+|---|---|---|---|---|---|
+| CFR+ | 1.138e-5 | 4.619e-5 | 5.324e-5 | −4.784e-6 | 0.2226 |
+| DCFR | 2.685e-5 | 1.220e-4 | 1.075e-5 | −6.905e-5 | 0.1891 |
+
+Strictly preferred actions have probability $\ge 0.9999995$ for both. The printout shows 1.000000
+at six decimals.
+
+Observations from these numbers, on Kuhn only:
+
+- **Speed.** At $T = 10^4$, CFR+ is about 250 times less exploitable than vanilla CFR. DCFR is
+  about 100 times less exploitable: behind CFR+ from $T = 100$ to $10^4$, ahead at $T = 10^5$. We
+  draw no conclusion beyond Kuhn. Leduc is compared in Task 6.
+- **Rates.** CFR+'s $e$ falls faster than $1/\sqrt T$ here: about 13× per decade from $10^2$ to
+  $10^3$, then 8× and 4×. The worst-case bound says only $1/\sqrt T$.
+- **Q's early bets fade with the weights.** $P(\text{bet} \mid Q) \approx 15.8/T^2$ for CFR+ and
+  $79.4/T^3$ for DCFR. The bets come from the first few iterations; their weight relative to
+  $W = \sum_t t \approx T^2/2$, or $\sum_t t^2 \approx T^3/3$, shrinks accordingly.
+- **Current strategies.** Unlike vanilla CFR's, they become less exploitable (CFR+: 3.5e-3 at
+  $10^5$), as Tammelin et al. (2015) observed in other games. There is no guarantee for them.
+- **Bounds are looser.** The Corollary bound exceeds CFR+'s exploitability by about 10× at
+  $T = 10^4$, and the stored-value bound by about 67×. Vanilla's bound was within 2%. The slack is
+  the improvement term of Theorem 3 and the dropped $\sum_{t<T} Q^t$.
+- **$\alpha$ drifts.** As for vanilla, the free parameter of the equilibrium family converges
+  slowly: 0.2226 → 0.2330 for CFR+ from $10^4$ to $10^5$.
+
+**Tolerances** (tests in `crates/solver/src/cfr.rs`, all at $T = 10^4$; about twice to three
+times the measured values):
+
+| Variant | $e \le$ | $\lvert u_1 + \tfrac1{18}\rvert \le$ | $P(\text{bet} \mid Q) \le$ | structure deviation $\le$ |
+|---|---|---|---|---|
+| CFR | 3e-3 | 2e-5 | 1e-3 | 0.02 |
+| CFR+ | 2e-5 | 5e-9 | 5e-7 | 1e-4 |
+| DCFR | 5e-5 | 1e-8 | 2e-10 | 3e-4 |
+
+For every variant, AC1 also requires $e$ to fall strictly at $T = 10, 100, 10^3, 10^4$, and
+$|u_1 + \tfrac1{18}| \le 2e$ at each checkpoint.
+
+- Reference: Brown & Sandholm (2019), checked against the arXiv version (1809.04040): the
+  definition, the recommended parameters, the timing of the discount, the special cases, the
+  example, and Theorems 1–2 with their proofs.
 
 ### 2.5 Vector-form (public-tree) CFR
 
@@ -911,11 +1257,16 @@ Games and equilibrium computation
   calculation in large extensive games. *IJCAI*.
 - Johanson, M., Bard, N., Lanctot, M., Gibson, R., & Bowling, M. (2012). Efficient Nash equilibrium
   approximation through Monte Carlo counterfactual regret minimization. *AAMAS*.
-- Tammelin, O. (2014). Solving large imperfect information games using CFR+. arXiv.
+- Tammelin, O. (2014). Solving large imperfect information games using CFR+. arXiv:1407.5042.
+  **(checked)**
 - Tammelin, O., Burch, N., Johanson, M., & Bowling, M. (2015). Solving heads-up limit Texas hold'em.
-  *IJCAI*.
+  *IJCAI*, 645–652. **(checked)**
+- Burch, N., Moravčík, M., & Schmid, M. (2019). Revisiting CFR+ and alternating updates. *Journal of
+  Artificial Intelligence Research* 64, 429–443. **(checked)**
+- Farina, G., Kroer, C., & Sandholm, T. (2019). Online convex optimization for sequential decision
+  processes and extensive-form games. *AAAI*. Cited via Burch et al. (2019); not checked.
 - Brown, N., & Sandholm, T. (2019). Solving imperfect-information games via discounted regret
-  minimization. *AAAI*.
+  minimization. *AAAI*. **(checked**, arXiv:1809.04040**)**
 - Burch, N., Johanson, M., & Bowling, M. (2014). Solving imperfect information games using
   decomposition. *AAAI*.
 - Brown, N., & Sandholm, T. (2017). Safe and nested subgame solving for imperfect-information
