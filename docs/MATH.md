@@ -162,15 +162,117 @@ $P(\text{call} \mid Q) - P(\text{bet} \mid J) \to 1/3$; P2: $\eta, \xi \to 1/3$)
 
 ### 1.3 Leduc Hold'em
 
-Six cards (two suits of J, Q, K), ante 1, one private card each, one public card, two betting
-rounds with fixed bet sizes (2 in round one, 4 in round two) and a cap on raises; a pair with the
-board wins, otherwise the higher card. Large enough to be non-trivial (hundreds of information
-sets), small enough to compute exact best responses.
+**Rules** (Southey et al. 2005, §2, checked against the arXiv version 1207.1411). Large enough
+to be non-trivial (936 information sets), small enough for exact best responses.
 
-- Test target: exploitability $\to 0$ as iterations grow, and agreement between our two
-  independent CFR implementations (tabular and vector-form).
-- **[Derive]** count the information sets for our exact rule variant; confirm the rule variant
-  matches the one in Southey et al. (2005) so published equilibrium values can be compared.
+| Rule | Paper | Our implementation (`crates/solver/src/games/leduc.rs`) |
+|---|---|---|
+| Deck | "two suits with three cards in each suit" | J, Q, K in two suits (named s, h; the paper names none) |
+| Ante | "Both players start the first round with 1 already in the pot" | 1 chip each |
+| Deal | one private card each in round one; one board card in round two | ordered pairs of distinct cards, probability 1/30 each; the board card uniform over the 4 remaining cards |
+| Bet size | "raise amounts of 2 and 4 in the first and second round" | a bet or raise matches the opponent's total and adds 2 (round one) or 4 (round two) |
+| Raise cap | "a two-bet maximum" | per round, at most one bet and one raise (Figure 1 draws this tree) |
+| Actions | fold / call / raise; "folding when both players have equal money in the pot … we do not include" | without a pending bet: check, bet; facing one: fold, call, raise (raise only below the cap) |
+| End of a round | a call that is not the first action of the round | check–check or a call |
+| Showdown | "the strongest poker hand with a combination of their private cards and the public board cards" | see below |
+
+**Interpretations** — points the paper leaves implicit:
+
+1. *Who acts first.* Figure 1 shows a single betting round rooted at player 1; we let P1 act first
+   in both rounds.
+2. *Hand strength.* With one private and one board card, the only poker hands are a pair and a
+   high card. A card that pairs the board wins; otherwise the higher rank wins. The players
+   cannot both pair the board, since each rank has only two cards.
+3. *Ties.* If both players hold the same rank (and so neither pairs the board), the pot is split:
+   payoff 0. Kuhn has no ties; Leduc does.
+
+**One round of betting.** Write `c` for check or call, `r` for bet or raise, `f` for fold. From
+Figure 1, a round has
+
+- 6 decision points: P1 at ∅, `cr`, `rr`; P2 at `c`, `r`, `crr`.
+- 4 folds: `rf`, `rrf`, `crf`, `crrf`.
+- 5 sequences that close the round: `cc`, `rc`, `rrc`, `crc`, `crrc`.
+
+Two-action decision points are ∅, `c` (check or bet) and `rr`, `crr` (fold or call: the cap is
+reached); `r` and `cr` have three (fold, call, raise).
+
+**Payoffs.** Each player's contribution is the ante plus every call and bet they made. A
+folder loses their contribution; at showdown both contributions are equal and the winner wins
+the loser's. Examples (P1's payoff): `rrf` (P1 bets, P2 raises, P1 folds) $= -(1 + 2) = -3$;
+both rounds `rrc` with P1 winning $= 1 + 2\cdot2 + 2\cdot4 = 13$, the largest pot.
+
+**Counting the tree** (with suits, as dealt). Per deal of private cards there are 6 decision
+points and 4 folds in round one, and for each of the 5 continuing sequences and each of the 4
+board cards another round with 6 decision points and 9 ends:
+
+| Count | Derivation | Value |
+|---|---|---|
+| Terminal histories | $30 \times (4 + 5 \times 4 \times 9)$ | 5,520 |
+| Decision nodes | $30 \times (6 + 5 \times 4 \times 6)$ | 3,780 |
+| Chance nodes | $1 + 30 \times 5$ (the deal; one board deal per deal and continuing sequence) | 151 |
+
+**Information sets.** A player sees their own card, all actions, and the board card once dealt.
+Per player:
+
+- Round one: 6 own cards × 3 decision points = 18, each containing 5 histories (the opponent
+  holds one of the other 5 cards).
+- Round two: 6 own cards × 5 board cards × 5 continuing round-one sequences × 3 decision points
+  = 450, each containing 4 histories (one of the other 4 cards).
+
+That is 468 per player and **936 in total**; check: $2 \times (18 \times 5 + 450 \times 4) = 3{,}780$
+decision nodes. Suits never decide a showdown, so information sets that differ only in suits are
+strategically identical. Merging them leaves $2 \times (3 \times 3 + 3 \times 3 \times 5 \times 3)
+= 288$ (round two: 3 own ranks × 3 board ranks, since a board card can share the player's rank).
+We solve the game as dealt, with 936 information sets, and do not merge. Both 936 and 288 appear
+in the literature for Leduc (found by a web search, not checked against a primary source); the
+two derivations above show they describe the same game with and without suit isomorphism.
+
+**Game value.** For any profile $\sigma$, both $u_1(\sigma)$ and the game value $v^*$ lie in
+$[-b_2(\sigma_1), b_1(\sigma_2)]$, an interval of width $b_1 + b_2 = 2e(\sigma)$: P1's best
+response to $\sigma_2$ earns at least $v^*$, since $v^* = \min_{\sigma_2'} \max_{\sigma_1'}
+u_1$; and $\sigma_1$ guarantees P1 at most $v^* = \max_{\sigma_1'} \min_{\sigma_2'} u_1$, so
+P2's best response holds P1 to $-b_2(\sigma_1) \le v^*$. So
+$|v^* - u_1(\bar\sigma)| \le 2e(\bar\sigma)$ for CFR's average strategy. The recorded run
+(`docs/results/README.md`) gives, for CFR+ at $T = 10^5$, $u_1 = -0.0856064$ and
+$e = 1.09 \times 10^{-6}$:
+
+$$v^* \in [-0.0856086,\ -0.0856042] \quad \text{chips per hand for P1.}$$
+
+Recent papers found by a web search quote about $-0.0856$; not checked against a primary source.
+
+**Measured convergence** (exploitability $e$ of the average strategy, chips; $u_1$ in brackets).
+From `docs/results/m1-leduc-convergence.csv`; command, commit and machine in
+`docs/results/README.md`. The runs are deterministic: a repeat run and a debug build gave
+byte-identical CSVs.
+
+| $T$ | CFR | CFR+ | DCFR(1.5, 0, 2) |
+|---|---|---|---|
+| 10 | 0.927 (−0.0368) | 0.520 (−0.2199) | 0.713 (−0.1803) |
+| 100 | 0.173 (−0.0916) | 1.34e-2 (−0.0838) | 7.55e-3 (−0.0857) |
+| 1,000 | 3.98e-2 (−0.0912) | 2.47e-4 (−0.0856) | 1.98e-4 (−0.0856) |
+| 10,000 | 1.04e-2 (−0.0871) | 4.82e-6 (−0.0856) | 8.36e-6 (−0.0856) |
+| 100,000 | 2.99e-3 (−0.0863) | 1.09e-6 (−0.0856) | 2.14e-6 (−0.0856) |
+
+Observations, on Leduc only:
+
+- **Vanilla CFR** falls by 3.8× and 3.5× per factor of 10 from $10^3$ to $10^5$, close to the
+  $\sqrt{10} \approx 3.2$ of its bound.
+- **CFR+ and DCFR** are about 160–200 times less exploitable than CFR at $10^3$ iterations and
+  1,200–2,700 times at $10^4$ and $10^5$. DCFR is ahead of CFR+ from 20 to $5 \times 10^3$
+  iterations (nearly tied at $5 \times 10^3$); CFR+ is ahead from $10^4$. Brown & Sandholm (2019) found
+  DCFR faster on their (larger) benchmark games; we draw no general conclusion from one small
+  game.
+- **Not monotone.** $e$ rises from 1 to 2 iterations for CFR+ and DCFR, and DCFR's rises
+  slightly from $10^4$ to $2 \times 10^4$ (8.36e-6 to 8.59e-6). Only the bound of §2.3 is
+  guaranteed to shrink, not $e$ itself.
+
+**Tests** (`games/leduc.rs`, `cfr.rs`): the payoffs above and others, the betting cap, the node
+counts, 936 information sets with 5 or 4 histories each and the derived action counts, 288 after
+merging suits; AC4 — for each variant, $e$ after 100 iterations is below $e$ after 10 and both
+respect the bound of §2.3 (measured values in the table; the counts avoid the first iterations,
+where $e$ can rise).
+
+Not done in M1: agreement between two independent CFR implementations on Leduc (M2, ADR-0015).
 
 ### 1.4 Heads-up hold'em turn / river subgames
 
@@ -792,7 +894,7 @@ Observations from these numbers, on Kuhn only:
 
 - **Speed.** At $T = 10^4$, CFR+ is about 250 times less exploitable than vanilla CFR. DCFR is
   about 100 times less exploitable: behind CFR+ from $T = 100$ to $10^4$, ahead at $T = 10^5$. We
-  draw no conclusion beyond Kuhn. Leduc is compared in Task 6.
+  draw no conclusion beyond Kuhn. Leduc is compared in §1.3.
 - **Rates.** CFR+'s $e$ falls faster than $1/\sqrt T$ here: about 13× per decade from $10^2$ to
   $10^3$, then 8× and 4×. The worst-case bound says only $1/\sqrt T$.
 - **Q's early bets fade with the weights.** $P(\text{bet} \mid Q) \approx 15.8/T^2$ for CFR+ and
@@ -1248,7 +1350,9 @@ Plugging in a noisy $\hat\mu$ over-bets; we integrate over the posterior instead
 
 Games and equilibrium computation
 - Kuhn, H. W. (1950). A simplified two-person poker. *Contributions to the Theory of Games I*.
-- Southey, F., et al. (2005). Bayes' Bluff: Opponent Modelling in Poker. *UAI*.
+- Southey, F., Bowling, M., Larson, B., Piccione, C., Burch, N., Billings, D., & Rayner, C.
+  (2005). Bayes' Bluff: Opponent Modelling in Poker. *UAI*. **(checked**, arXiv:1207.1411, §2
+  and Figure 1**)**
 - Hart, S., & Mas-Colell, A. (2000). A simple adaptive procedure leading to correlated equilibrium.
   *Econometrica*.
 - Zinkevich, M., Johanson, M., Bowling, M., & Piccione, C. (2007). Regret minimization in games with
