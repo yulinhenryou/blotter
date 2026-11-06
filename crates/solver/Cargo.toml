@@ -13,6 +13,7 @@ cards.workspace = true
 [dev-dependencies]
 criterion.workspace = true
 num-rational.workspace = true
+proptest.workspace = true
 
 [[bench]]
 name = "engine_version"

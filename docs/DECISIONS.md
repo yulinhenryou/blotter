@@ -58,6 +58,7 @@ How we will know the decision works (test, benchmark, measurement).
 | 0018 | Toolchain and dependency versions pinned in M0 | Accepted |
 | 0019 | Public repository with rewritten commit identities | Accepted |
 | 0020 | Exact rationals in tests: `num-rational` as a dev-dependency | Accepted |
+| 0021 | Property tests: `proptest` as a dev-dependency, fixed seeds | Accepted |
 
 All records below dated 2026-11-03. Proposals 0004 (data format), 0006 (SQLAlchemy + Alembic),
 0007 (details), 0008, 0012, 0013, 0015 and 0016 were accepted by Henry on 2026-11-03; ADR-0014
@@ -352,4 +353,23 @@ dev-dependency of `solver`: it is not part of any build that ships.
 
 **Consequences.** Generic code is monomorphized per type, so the `f64` path costs nothing extra.
 `Ratio<i64>` can overflow on large games; it is only used on Kuhn-sized test cases.
+
+## ADR-0021: Property tests — `proptest` as a dev-dependency, fixed seeds
+
+- Status: Accepted (Henry, 2026-11-04: M1 plan §0.1 names `proptest` as a new dev-dependency)
+- Date: 2026-11-05
+
+**Context.** `CLAUDE.md` §8 asks for property tests of solver invariants (strategy rows sum to 1,
+regrets finite, CFR+ regrets non-negative; M1 AC5). `CLAUDE.md` §8 also asks for tests with
+fixed seeds, so a failure seen in CI can be reproduced locally.
+
+**Decision.** `proptest` 1.12.0 (MIT OR Apache-2.0), with `default-features = false,
+features = ["std"]`, is a dev-dependency of `solver`. Disabling the defaults drops the `fork` and
+`timeout` features (process forking via `rusty-fork` and `tempfile`), which these tests do not
+need. Every `proptest!` block sets `rng_seed: RngSeed::Fixed(…)` in its config, so every run
+checks the same cases.
+
+**Consequences.** Eleven crates (`proptest` and its dependencies) are added to `Cargo.lock`, all for tests only; `cargo deny`
+accepts their licenses. A fixed seed trades fresh random cases on every run for
+reproducibility. Changing a seed is an explicit, reviewable edit.
 

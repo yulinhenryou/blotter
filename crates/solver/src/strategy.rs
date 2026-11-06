@@ -84,6 +84,15 @@ impl<V: Value> Profile<V> {
         Ok(profile)
     }
 
+    /// A profile from rows that are probability distributions by construction (normalized
+    /// sums, regret matching). Checked only in debug builds, so callers inside the crate need no
+    /// error path for a case that cannot happen.
+    pub(crate) fn new_unchecked(tree: &GameTree, rows: Vec<Vec<V>>) -> Profile<V> {
+        let profile = Profile { rows };
+        debug_assert_eq!(profile.validate(tree), Ok(()));
+        profile
+    }
+
     /// A profile whose row for each information set is `row_for(infoset)`.
     ///
     /// `row_for` is `FnMut`: it is called once per information set, in order, and may update
