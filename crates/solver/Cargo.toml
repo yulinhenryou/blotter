@@ -16,7 +16,7 @@ num-rational.workspace = true
 proptest.workspace = true
 
 [[bench]]
-name = "engine_version"
+name = "cfr"
 harness = false
 
 [lints]

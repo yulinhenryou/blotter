@@ -5,8 +5,8 @@ criterion is met and verified (by CI, a test, or a recorded run with command and
 thresholds that cannot be chosen honestly before a first measurement are marked **[set after
 first measurement]** and are recorded in `DECISIONS.md` when fixed.
 
-Current status: **M0 complete** (skeleton and CI; [`plans/M0.md`](plans/M0.md)). **M1 in
-progress** (plan and task status in [`plans/M1.md`](plans/M1.md)).
+Current status: **M0 complete** (skeleton and CI; [`plans/M0.md`](plans/M0.md)). **M1 complete**
+(CFR on Kuhn and Leduc; acceptance evidence in [`plans/M1.md`](plans/M1.md) §5). Next: M3a.
 
 ## Order
 
@@ -87,7 +87,8 @@ Deliverables
 
 Acceptance criteria
 1. Kuhn: first player's value of the average strategy is within a stated tolerance of −1/18
-   (tolerance **[set after first measurement]**), and exploitability decreases toward 0.
+   (tolerance **[set after first measurement]**; set in ADR-0023), and exploitability decreases
+   toward 0.
 2. Kuhn: the computed equilibrium satisfies the known structure (e.g. Q never bets first; the
    K-bet / J-bet frequency ratio is 3 within tolerance) — test derived from the hand derivation.
 3. Best response verified independently: hand-computed best-response values against the uniform

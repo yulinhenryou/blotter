@@ -38,9 +38,9 @@ The first real user is **Henry**, a live and online No-Limit Hold'em player (abo
 experience; has read *The Theory of Poker* and *Modern Poker Theory*), who will use it to review
 their own hands. Henry knows Python, Java and JavaScript well and is **new to Rust**.
 
-**Current status:** M0 (skeleton and CI) complete — see `docs/plans/M0.md`. M1 (CFR on Kuhn and
-Leduc) in progress — see `docs/plans/M1.md` for task status. Setup and commands:
-`docs/DEVELOPMENT.md`.
+**Current status:** M0 (skeleton and CI) and M1 (CFR on Kuhn and Leduc) complete — see
+`docs/plans/M0.md` and `docs/plans/M1.md` (acceptance evidence in §5). Next milestone: M3a (hand
+record format and storage; `docs/ROADMAP.md`). Setup and commands: `docs/DEVELOPMENT.md`.
 
 ## 2. Core principles (non-negotiable)
 
