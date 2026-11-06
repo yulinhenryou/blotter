@@ -392,3 +392,34 @@ with a fixed `svg.hashsalt`, so the same CSV always gives the same file.
 **Consequences.** `python/uv.lock` grows by these packages; nothing that ships depends on them.
 Colors come from a palette checked for color-vision deficiency; series are also told apart by
 marker and direct label.
+
+## ADR-0023: M1 tolerances set from measured runs
+
+- Status: Accepted (Henry, 2026-11-05 and 2026-11-06: values merged with PR #6 and PR #7 after
+  review; recorded here as `ROADMAP.md` requires for thresholds marked **[set after first
+  measurement]**)
+- Date: 2026-11-06
+
+**Context.** M1 AC1 and AC2 leave their tolerances to be set after a first measurement. They were
+set in `docs/MATH.md` §2.2 (vanilla CFR) and §2.4 (CFR+, DCFR) from deterministic runs recorded
+there, about two to three times the measured values.
+
+**Decision.** At $T = 10^4$ iterations on Kuhn poker, the average strategy must satisfy:
+
+| Variant | exploitability ≤ | \|u₁ + 1/18\| ≤ | P(bet \| Q) ≤ | structure deviation ≤ |
+|---|---|---|---|---|
+| CFR | 3e-3 | 2e-5 | 1e-3 | 0.02 |
+| CFR+ | 2e-5 | 5e-9 | 5e-7 | 1e-4 |
+| DCFR(1.5, 0, 2) | 5e-5 | 1e-8 | 2e-10 | 3e-4 |
+
+"Structure deviation" covers $P(\text{bet} \mid K) - 3\,P(\text{bet} \mid J)$,
+$P(\text{call} \mid Q, pb) - P(\text{bet} \mid J) - 1/3$ and P2's two mixing probabilities minus
+1/3 (`MATH.md` §1.2); the same tolerance bounds how far below 1 the probabilities of the strict
+choices of §1.2, Step 1 (fold J and call K facing a bet, P2 bets K after a check) may be. In
+addition, exploitability must fall strictly at $T = 10, 100, 10^3,
+10^4$, and $|u_1 + 1/18| \le 2e$ at each of these checkpoints.
+
+**Consequences.** The tests (`crates/solver/src/cfr.rs`) are deterministic, so a tolerance failure
+means the computation changed, not noise. AC2 is tested as the difference
+$P(\text{bet} \mid K) - 3\,P(\text{bet} \mid J) \to 0$ rather than the ratio named in
+`ROADMAP.md`: the ratio is undefined when $P(\text{bet} \mid J) = 0$, which is an equilibrium.
