@@ -10,6 +10,7 @@ requires-python = ">=3.15"
 dynamic = ["version"]
 dependencies = [
     "fastapi>=0.162.0",
+    "pydantic>=2.14.2",
     "uvicorn>=0.54.0",
 ]
 

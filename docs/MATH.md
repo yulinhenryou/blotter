@@ -369,9 +369,12 @@ raise". If a full raise of size $F'$ has happened since, then $B - x_i \ge F'$, 
 current $F$ unless a later full raise replaced it by $F'' \le B - x_i$ as well. Either way the seat
 has raise rights. Limit poker's 50 % rule (TDA 49-B) does not apply to no-limit.
 
-**End of a street.** A street ends when at most one seat is not folded, or when every active seat
-has acted on it and has $x_i = B$. A street is played only if at least two seats are active when
-it starts; otherwise the remaining board is dealt with no betting.
+**End of a street.** An active seat **must act** if $x_i < B$, or if it has not yet acted on this
+street and at least one other seat is active. A street ends when at most one seat is not folded,
+or when no seat must act. Two consequences: a street that starts with fewer than two active seats
+has no betting (the remaining board is dealt), and a lone active seat that owes nothing does not
+act, since nobody is left to bet against — for example the big blind when one player has called
+all-in for exactly the big blind and everyone else has folded.
 
 **End of the hand.** Either one seat is left (it wins everything after the uncalled bet is
 returned), or the river ends with two or more non-folded seats (showdown). The board must then be

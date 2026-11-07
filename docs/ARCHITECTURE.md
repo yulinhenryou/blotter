@@ -368,7 +368,7 @@ ignored if sent.
 | `seats` | list | One entry per seat that matters (below); others are implied |
 | `board` | object | `flop` (3 cards or `null`), `turn`, `river` (a card or `null`) |
 | `actions` | list | In order (below) |
-| `results` | list | `{seat, won_chips}` per seat that won chips; omitted seats won 0 |
+| `results` | list | `{seat, won_chips ≥ 1}` per seat that won chips; omitted seats won 0; at least one entry |
 | `completeness` | object, *derived* | `villain_cards_unknown`, `stacks_approximate`, `amounts_approximate` |
 | `rake_chips`, `hero_net_chips` | int, *derived* | `MATH.md` §1.5, results and conservation |
 
@@ -390,9 +390,9 @@ ignored if sent.
 | `street` | `preflop` / `flop` / `turn` / `river` | |
 | `seat` | seat number | |
 | `kind` | `post_small_blind` / `post_big_blind` / `post_straddle` / `post_ante` / `fold` / `check` / `call` / `bet` / `raise` | |
-| `amount_to_chips` | int or `null` | For posts (except antes), calls, bets and raises: the seat's total committed on this street after the action ($x_i$ of `MATH.md` §1.5). `null` for fold and check |
+| `amount_to_chips` | int or `null` | For posts (except antes), calls, bets and raises: the seat's total committed on this street after the action ($x_i$ of `MATH.md` §1.5). `null` for fold and check. May be left `null` for a call: it is then the current bet, or the whole stack if `all_in` |
 | `ante_chips` | int or `null` | For `post_ante` only |
-| `all_in` | bool | The action put the seat all-in; checked against the stack when it is known |
+| `all_in` | bool | The action put the seat all-in; checked against the stack when it is known, and the only source when it is not (forced bets included) |
 | `amount_approximate` | bool | The amount is an estimate |
 
 **Invalid vs. incomplete.** A record is *invalid* — rejected, with each error pointing at a field
@@ -411,10 +411,16 @@ put chips in voluntarily and folded preflop when it was first their turn, facing
 need no entry in `seats` and no actions; canonicalization inserts their folds. A seat that could
 have checked at its turn (the big blind's option, a straddler's) must have its action entered, and
 a seat with any entered action must have all its actions entered; hero's actions are always
-entered. What the server stores and returns is the **canonical** record, with every seat, post and
-fold explicit. `completeness.villain_cards_unknown` is true when some non-folded villain at the end
-of the hand has `null` hole cards; `stacks_approximate` when some stack is `null` (and not derived)
-or approximate; `amounts_approximate` when some action is approximate.
+entered. Forced posts are either all left out or all given, before any other action and in the
+order of `MATH.md` §1.5 (antes, small blind, big blind, straddles). What the server stores and
+returns is the **canonical** record, with every seat, post and fold explicit, seats and results
+sorted by seat; canonicalizing a canonical record changes nothing.
+
+`completeness.villain_cards_unknown` is true when some non-folded villain at the end of the hand
+has `null` hole cards. `stacks_approximate` is true when some *involved* seat — hero, a seat that
+called, bet or raised, or a seat that acted after the flop — has a `null` stack (not derived) or an
+approximate one; stacks of seats that only posted or folded preflop do not matter for analysis.
+`amounts_approximate` is true when some action is approximate.
 
 ## 8. Deployment model (to be decided in M4a)
 

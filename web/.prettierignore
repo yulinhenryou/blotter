@@ -4,3 +4,4 @@ node_modules
 src/api/schema.d.ts
 package-lock.json
 openapi.json
+hand-record.schema.json

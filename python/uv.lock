@@ -82,6 +82,7 @@ name = "blotter"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "pydantic" },
     { name = "uvicorn" },
 ]
 
@@ -100,6 +101,7 @@ plots = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.162.0" },
+    { name = "pydantic", specifier = ">=2.14.2" },
     { name = "uvicorn", specifier = ">=0.54.0" },
 ]
 

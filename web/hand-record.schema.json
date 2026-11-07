@@ -1,0 +1,559 @@
+{
+  "$defs": {
+    "Action": {
+      "additionalProperties": false,
+      "description": "One action. ``amount_to_chips`` is the seat's total on this street after the action.",
+      "properties": {
+        "all_in": {
+          "default": false,
+          "title": "All In",
+          "type": "boolean"
+        },
+        "amount_approximate": {
+          "default": false,
+          "title": "Amount Approximate",
+          "type": "boolean"
+        },
+        "amount_to_chips": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Amount To Chips"
+        },
+        "ante_chips": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ante Chips"
+        },
+        "kind": {
+          "$ref": "#/$defs/ActionKind"
+        },
+        "seat": {
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Seat",
+          "type": "integer"
+        },
+        "street": {
+          "$ref": "#/$defs/Street"
+        }
+      },
+      "required": [
+        "street",
+        "seat",
+        "kind"
+      ],
+      "title": "Action",
+      "type": "object"
+    },
+    "ActionKind": {
+      "description": "What a seat did. The ``post_*`` kinds are forced bets (``docs/MATH.md`` \u00a71.5).",
+      "enum": [
+        "post_ante",
+        "post_small_blind",
+        "post_big_blind",
+        "post_straddle",
+        "fold",
+        "check",
+        "call",
+        "bet",
+        "raise"
+      ],
+      "title": "ActionKind",
+      "type": "string"
+    },
+    "Ante": {
+      "additionalProperties": false,
+      "description": "An ante: every dealt-in seat posts ``chips``, or the big blind posts it once.",
+      "properties": {
+        "chips": {
+          "minimum": 1,
+          "title": "Chips",
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/$defs/AnteKind"
+        }
+      },
+      "required": [
+        "kind",
+        "chips"
+      ],
+      "title": "Ante",
+      "type": "object"
+    },
+    "AnteKind": {
+      "description": "Who posts the ante.",
+      "enum": [
+        "per_player",
+        "big_blind"
+      ],
+      "title": "AnteKind",
+      "type": "string"
+    },
+    "Board": {
+      "additionalProperties": false,
+      "description": "Community cards; ``None`` for a street that was not dealt.",
+      "properties": {
+        "flop": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "examples": [
+                    "Ks",
+                    "Td",
+                    "2c"
+                  ],
+                  "pattern": "^[2-9TJQKA][shdc]$",
+                  "type": "string"
+                },
+                {
+                  "examples": [
+                    "Ks",
+                    "Td",
+                    "2c"
+                  ],
+                  "pattern": "^[2-9TJQKA][shdc]$",
+                  "type": "string"
+                },
+                {
+                  "examples": [
+                    "Ks",
+                    "Td",
+                    "2c"
+                  ],
+                  "pattern": "^[2-9TJQKA][shdc]$",
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flop"
+        },
+        "river": {
+          "anyOf": [
+            {
+              "examples": [
+                "Ks",
+                "Td",
+                "2c"
+              ],
+              "pattern": "^[2-9TJQKA][shdc]$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "River"
+        },
+        "turn": {
+          "anyOf": [
+            {
+              "examples": [
+                "Ks",
+                "Td",
+                "2c"
+              ],
+              "pattern": "^[2-9TJQKA][shdc]$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Turn"
+        }
+      },
+      "title": "Board",
+      "type": "object"
+    },
+    "Completeness": {
+      "additionalProperties": false,
+      "description": "What the record does not know exactly. Derived; see ``docs/ARCHITECTURE.md`` \u00a77.3.",
+      "properties": {
+        "amounts_approximate": {
+          "title": "Amounts Approximate",
+          "type": "boolean"
+        },
+        "stacks_approximate": {
+          "title": "Stacks Approximate",
+          "type": "boolean"
+        },
+        "villain_cards_unknown": {
+          "title": "Villain Cards Unknown",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "villain_cards_unknown",
+        "stacks_approximate",
+        "amounts_approximate"
+      ],
+      "title": "Completeness",
+      "type": "object"
+    },
+    "RecordReason": {
+      "description": "Why the hand was logged (``docs/MATH.md`` \u00a74.5).",
+      "enum": [
+        "notable",
+        "routine",
+        "random_sample"
+      ],
+      "title": "RecordReason",
+      "type": "string"
+    },
+    "Result": {
+      "additionalProperties": false,
+      "description": "Chips won by one seat. Seats without an entry won nothing.",
+      "properties": {
+        "seat": {
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Seat",
+          "type": "integer"
+        },
+        "won_chips": {
+          "minimum": 1,
+          "title": "Won Chips",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seat",
+        "won_chips"
+      ],
+      "title": "Result",
+      "type": "object"
+    },
+    "SeatEntry": {
+      "additionalProperties": false,
+      "description": "What is known about one dealt-in seat.",
+      "properties": {
+        "hole_cards": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "examples": [
+                    "Ks",
+                    "Td",
+                    "2c"
+                  ],
+                  "pattern": "^[2-9TJQKA][shdc]$",
+                  "type": "string"
+                },
+                {
+                  "examples": [
+                    "Ks",
+                    "Td",
+                    "2c"
+                  ],
+                  "pattern": "^[2-9TJQKA][shdc]$",
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hole Cards"
+        },
+        "player_id": {
+          "anyOf": [
+            {
+              "format": "uuid7",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Player Id"
+        },
+        "seat": {
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Seat",
+          "type": "integer"
+        },
+        "showed": {
+          "default": false,
+          "title": "Showed",
+          "type": "boolean"
+        },
+        "stack_approximate": {
+          "default": false,
+          "title": "Stack Approximate",
+          "type": "boolean"
+        },
+        "starting_stack_chips": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Starting Stack Chips"
+        }
+      },
+      "required": [
+        "seat"
+      ],
+      "title": "SeatEntry",
+      "type": "object"
+    },
+    "Stakes": {
+      "additionalProperties": false,
+      "description": "Forced bets of the hand, in chips.",
+      "properties": {
+        "ante": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Ante"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "big_blind_chips": {
+          "minimum": 1,
+          "title": "Big Blind Chips",
+          "type": "integer"
+        },
+        "small_blind_chips": {
+          "minimum": 1,
+          "title": "Small Blind Chips",
+          "type": "integer"
+        },
+        "straddles_chips": {
+          "default": [],
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "title": "Straddles Chips",
+          "type": "array"
+        }
+      },
+      "required": [
+        "small_blind_chips",
+        "big_blind_chips"
+      ],
+      "title": "Stakes",
+      "type": "object"
+    },
+    "Street": {
+      "description": "Betting rounds, in order.",
+      "enum": [
+        "preflop",
+        "flop",
+        "turn",
+        "river"
+      ],
+      "title": "Street",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One hand, as captured or as stored.\n\nThe fields ``completeness``, ``rake_chips`` and ``hero_net_chips`` are derived: they are\nignored on input and filled in by :func:`review.domain.check.check`.",
+  "properties": {
+    "actions": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Action"
+      },
+      "title": "Actions",
+      "type": "array"
+    },
+    "board": {
+      "$ref": "#/$defs/Board",
+      "default": {
+        "flop": null,
+        "river": null,
+        "turn": null
+      }
+    },
+    "button_seat": {
+      "maximum": 10,
+      "minimum": 1,
+      "title": "Button Seat",
+      "type": "integer"
+    },
+    "client_seq": {
+      "minimum": 0,
+      "title": "Client Seq",
+      "type": "integer"
+    },
+    "completeness": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Completeness"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "dealt_in_seats": {
+      "items": {
+        "maximum": 10,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "title": "Dealt In Seats",
+      "type": "array"
+    },
+    "hero_net_chips": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Hero Net Chips"
+    },
+    "hero_seat": {
+      "maximum": 10,
+      "minimum": 1,
+      "title": "Hero Seat",
+      "type": "integer"
+    },
+    "id": {
+      "format": "uuid7",
+      "title": "Id",
+      "type": "string"
+    },
+    "played_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Played At"
+    },
+    "rake_chips": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rake Chips"
+    },
+    "record_reason": {
+      "$ref": "#/$defs/RecordReason"
+    },
+    "results": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Result"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "revision": {
+      "default": 1,
+      "minimum": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "seats": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SeatEntry"
+      },
+      "title": "Seats",
+      "type": "array"
+    },
+    "session_id": {
+      "format": "uuid7",
+      "title": "Session Id",
+      "type": "string"
+    },
+    "source": {
+      "const": "manual",
+      "default": "manual",
+      "title": "Source",
+      "type": "string"
+    },
+    "stakes": {
+      "$ref": "#/$defs/Stakes"
+    },
+    "table_size": {
+      "maximum": 10,
+      "minimum": 2,
+      "title": "Table Size",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id",
+    "session_id",
+    "client_seq",
+    "record_reason",
+    "stakes",
+    "table_size",
+    "dealt_in_seats",
+    "button_seat",
+    "hero_seat"
+  ],
+  "title": "HandRecord",
+  "type": "object"
+}

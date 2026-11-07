@@ -12,6 +12,8 @@ on:
       - "rust-toolchain.toml"
       - "scripts/export_openapi.py"
       - "web/openapi.json"
+      - "scripts/export_hand_record_schema.py"
+      - "web/hand-record.schema.json"
       - ".github/workflows/python.yml"
 
 permissions:
