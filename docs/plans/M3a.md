@@ -1,7 +1,7 @@
 # M3a plan — Hand record format and storage (Python, no solver)
 
 Status: **accepted (2026-11-07)**; D1–D5 decided as recommended (§0.1). Acceptance criteria:
-`ROADMAP.md` → M3a. Progress: Task 1 merged.
+`ROADMAP.md` → M3a. Progress: Task 1 merged; Task 2 in review.
 
 M3a gives captured hands a durable, validated home that the phone (M4a) can sync into. Nothing in
 it calls the engine: every decision point is stored unscored, with the reason "engine not
@@ -224,6 +224,15 @@ Each task is one PR (D5). "Rules" or "Math" is worked out in the session before 
 - Risk addressed: a generator built from the validator's own code would only test that the code
   agrees with itself. The dealer is written separately and kept small; the hand-computed fixtures
   are the external anchor.
+- As implemented: `domain/record.py` (frozen Pydantic models), `rules.py` (the betting state
+  machine), `pots.py`, `check.py` (validation and canonical form in one replay, since the replay
+  that checks a record is also the one that inserts its implicit folds) and `schema.py`; cards are
+  pattern-checked strings, so there is no `cards.py`. The dealer (`tests/dealer.py`) differs from
+  the checker in mechanism: pending-seat sets, raise rights in the wording of TDA 49-A, pots
+  peeled off the smallest contribution. Writing it exposed one gap in `MATH.md` §1.5 — a lone
+  active seat that owes nothing does not act — now stated there. Eight bugs injected one at a time
+  into `domain` were each caught by the tests (one only after a test was added; see the PR).
+  `pydantic` is now an explicit dependency (it was installed through FastAPI).
 
 ### Task 3 — `storage`: models and migrations on SQLite and PostgreSQL
 

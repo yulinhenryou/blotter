@@ -89,6 +89,15 @@ cd web && npm run gen:api                                   # regenerate src/api
 A Python test fails if `web/openapi.json` is stale; `npm run check:api` fails if the TypeScript
 types are stale.
 
+`web/hand-record.schema.json` is the JSON Schema of the hand record (`review.domain`), for the web
+app's offline validation. After changing the record model:
+
+```bash
+uv run --project python python scripts/export_hand_record_schema.py
+```
+
+A Python test fails if it is stale.
+
 ## Results and plots
 
 Measured outputs live in `docs/results/`, each with the command that produced it in
