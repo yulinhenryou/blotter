@@ -1,7 +1,7 @@
 # M3a plan — Hand record format and storage (Python, no solver)
 
 Status: **accepted (2026-11-07)**; D1–D5 decided as recommended (§0.1). Acceptance criteria:
-`ROADMAP.md` → M3a. Progress: Tasks 1–2 merged; Task 3 in review.
+`ROADMAP.md` → M3a. Progress: Tasks 1–3 merged; Task 4 in review.
 
 M3a gives captured hands a durable, validated home that the phone (M4a) can sync into. Nothing in
 it calls the engine: every decision point is stored unscored, with the reason "engine not
@@ -255,6 +255,19 @@ Each task is one PR (D5). "Rules" or "Math" is worked out in the session before 
 - Tests: AC4 — for Hypothesis-generated canonical records (Task 2's dealer, plus incomplete
   variants), record → rows → record is the identity, on SQLite and PostgreSQL. Upsert by
   (id, revision) as decided in D3.
+- As implemented: `storage/repository.py` has `save_hand` and `load_hand`. They run inside the
+  caller's transaction and never commit. `save_hand` stores only canonical records: it runs
+  `check` and refuses (`NotCanonicalError`) a record that has issues or differs from its canonical
+  form, so the rows always describe a valid hand. The outcome is `created`, `replaced`,
+  `unchanged` or `conflict` (D3), with the revision stored afterwards; the stored row is read
+  `FOR UPDATE`, so two saves of one hand on PostgreSQL cannot both pass the revision check.
+  A replace rewrites the hand's seat and action rows. `played_at` comes back in UTC (the same
+  instant, so the record is equal). Venues, sessions and players get their save functions with
+  their sync models in Task 6. Tests: AC4 on both backends with records from the dealer, 70% of
+  them made incomplete (unknown villain cards and stacks, rough stacks and amounts, implicit
+  folds left out), random revisions and `played_at` with random UTC offsets; plus unchanged,
+  replace, conflict and refusal cases. Thirteen injected faults in `repository.py` (one field
+  dropped or one rule changed at a time) were each caught by the SQLite run.
 
 ### Task 5 — `ledger`: decision points and situation keys
 
