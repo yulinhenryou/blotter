@@ -1,7 +1,7 @@
 # M3a plan — Hand record format and storage (Python, no solver)
 
 Status: **accepted (2026-11-07)**; D1–D5 decided as recommended (§0.1). Acceptance criteria:
-`ROADMAP.md` → M3a. Progress: Task 1 in review.
+`ROADMAP.md` → M3a. Progress: Task 1 merged.
 
 M3a gives captured hands a durable, validated home that the phone (M4a) can sync into. Nothing in
 it calls the engine: every decision point is stored unscored, with the reason "engine not
@@ -202,7 +202,7 @@ Each task is one PR (D5). "Rules" or "Math" is worked out in the session before 
 - D1 recorded as an ADR.
 - Verified by: Henry reviews the rules and the worked examples.
 - As implemented: the TDA Rules (2026 v1.1) are the checked source; three conventions they do not
-  cover are marked *(house)* for Henry to confirm. The uncalled bet and the pot levels are computed
+  cover are marked *(house)*, confirmed by Henry. The uncalled bet and the pot levels are computed
   on live chips, with antes in the main pot — computed on totals, a big-blind ante breaks them
   (`MATH.md` §1.5). The feasibility of entered results reduces to $m$ prefix inequalities because
   pot eligibility is nested. Version 1 adds `dealt_in_seats` and `showed` to the sketch of §1.2.

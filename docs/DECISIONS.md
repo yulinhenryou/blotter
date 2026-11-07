@@ -61,7 +61,7 @@ How we will know the decision works (test, benchmark, measurement).
 | 0021 | Property tests: `proptest` as a dev-dependency, fixed seeds | Accepted |
 | 0022 | Plots: matplotlib in a separate uv dependency group | Accepted |
 | 0023 | M1 tolerances set from measured runs | Accepted |
-| 0024 | Hand record version 1: scope and rule source | Proposed |
+| 0024 | Hand record version 1: scope and rule source | Accepted |
 
 All records below dated 2026-11-03. Proposals 0004 (data format), 0006 (SQLAlchemy + Alembic),
 0007 (details), 0008, 0012, 0013, 0015 and 0016 were accepted by Henry on 2026-11-03; ADR-0014
@@ -429,8 +429,8 @@ $P(\text{bet} \mid K) - 3\,P(\text{bet} \mid J) \to 0$ rather than the ratio nam
 
 ## ADR-0024: Hand record version 1 — scope and rule source
 
-- Status: Proposed (scope accepted by Henry, 2026-11-07: M3a plan decision D1 = (a); the rule
-  details marked *(house)* in `MATH.md` §1.5 await Henry's review in M3a Task 1)
+- Status: Accepted (Henry, 2026-11-07: scope as M3a plan decision D1 = (a); the three *(house)*
+  conventions of `MATH.md` §1.5 confirmed as matching the cardrooms Henry plays in)
 - Date: 2026-11-07
 
 **Context.** M3a stores captured hands and must reject impossible ones (`ROADMAP.md` → M3a, AC1).
@@ -461,4 +461,5 @@ was available and agrees on the rules used, as far as secondary sources show.
 **Consequences.** Hands outside the scope cannot be recorded yet; if Henry meets them often at the
 table, that is the signal for version 2. The TDA rules are written for tournaments: if Henry's
 cardrooms play a house rule that differs (for example on straddles), the validator would reject a
-real hand, so the *(house)* conventions are listed explicitly for review.
+real hand, so the *(house)* conventions are listed explicitly; Henry confirmed all three on
+2026-11-07. A rejected real hand is the signal to revisit them.

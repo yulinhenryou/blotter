@@ -300,7 +300,8 @@ and decision-point extraction in M3a all implement this section). Scope of recor
 49-A, 49-B, 67-A, read on pokertda.com on 2026-11-07**)**. The TDA rules are written for
 tournaments; for cash games cardrooms follow house rules, which agree with them on the points
 used here as far as we know, but no cash-game rulebook was checked. Rules marked *(house)* below
-are not in the TDA text and are conventions to be confirmed by Henry.
+are not in the TDA text; Henry confirmed them as the practice of the cardrooms Henry plays in
+(2026-11-07, ADR-0024).
 
 #### Notation
 
