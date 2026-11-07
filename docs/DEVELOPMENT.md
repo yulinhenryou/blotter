@@ -98,6 +98,29 @@ uv run --project python python scripts/export_hand_record_schema.py
 
 A Python test fails if it is stale.
 
+## Database
+
+The API and the migrations read the SQLAlchemy URL from `DATABASE_URL`, for example
+`sqlite:///data/hands.db` (relative to `python/`). In `python/`:
+
+```bash
+DATABASE_URL=sqlite:///data/hands.db uv run alembic upgrade head   # create or migrate
+uv run alembic revision --autogenerate --rev-id 0002 -m "what changes"  # new migration
+```
+
+A new migration is generated against a database migrated to the previous head, then reviewed by
+hand (autogenerate misses some changes, e.g. renames); `test_models_and_migrations_agree` fails
+if the models and the migrations differ.
+
+Storage tests run on SQLite and, when `TEST_POSTGRES_URL` is set, on PostgreSQL; CI always runs
+both (ADR-0025). To run the PostgreSQL ones locally against a server you have:
+
+```bash
+TEST_POSTGRES_URL=postgresql+pg8000://USER:PASSWORD@localhost:5432/DB uv run pytest
+```
+
+The tests drop and recreate the `public` schema of that database: use a throwaway one.
+
 ## Results and plots
 
 Measured outputs live in `docs/results/`, each with the command that produced it in

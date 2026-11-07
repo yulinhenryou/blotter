@@ -1,7 +1,7 @@
 # M3a plan — Hand record format and storage (Python, no solver)
 
 Status: **accepted (2026-11-07)**; D1–D5 decided as recommended (§0.1). Acceptance criteria:
-`ROADMAP.md` → M3a. Progress: Task 1 merged; Task 2 in review.
+`ROADMAP.md` → M3a. Progress: Tasks 1–2 merged; Task 3 in review.
 
 M3a gives captured hands a durable, validated home that the phone (M4a) can sync into. Nothing in
 it calls the engine: every decision point is stored unscored, with the reason "engine not
@@ -240,6 +240,14 @@ Each task is one PR (D5). "Rules" or "Math" is worked out in the session before 
 - Files: `storage/models.py`, `storage/types.py`, `storage/migrations/`, migration tests;
   `.github/workflows/python.yml` gains a PostgreSQL service container.
 - Tests: AC2 on both backends (this plan's §1.5).
+- As implemented: migration `0001` creates `venues`, `players`, `sessions`, `hands`,
+  `hand_seats` (the draft's `hand_players`, renamed because it also holds anonymous seats; it
+  carries `won_chips`, so there is no results table) and `actions`. `decision_points` comes with
+  its own migration in Task 5, whose columns depend on D4 — which also gives the migration tests
+  a second step. SQLAlchemy's `Uuid` already stores UUIDs portably, so `storage/types.py` holds
+  only `UTCDateTime`. Besides AC2 (upgrade from empty, downgrade to base and up again,
+  `alembic check`), tests cover foreign-key enforcement and UTC timestamps on both backends.
+  Dependencies and CI: ADR-0025.
 
 ### Task 4 — Record ↔ rows
 

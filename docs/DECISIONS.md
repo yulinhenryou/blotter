@@ -62,6 +62,7 @@ How we will know the decision works (test, benchmark, measurement).
 | 0022 | Plots: matplotlib in a separate uv dependency group | Accepted |
 | 0023 | M1 tolerances set from measured runs | Accepted |
 | 0024 | Hand record version 1: scope and rule source | Accepted |
+| 0025 | Storage dependencies; PostgreSQL in CI | Accepted |
 
 All records below dated 2026-11-03. Proposals 0004 (data format), 0006 (SQLAlchemy + Alembic),
 0007 (details), 0008, 0012, 0013, 0015 and 0016 were accepted by Henry on 2026-11-03; ADR-0014
@@ -463,3 +464,33 @@ table, that is the signal for version 2. The TDA rules are written for tournamen
 cardrooms play a house rule that differs (for example on straddles), the validator would reject a
 real hand, so the *(house)* conventions are listed explicitly; Henry confirmed all three on
 2026-11-07. A rejected real hand is the signal to revisit them.
+
+## ADR-0025: Storage dependencies; PostgreSQL in CI
+
+- Status: Accepted (Henry, 2026-11-07: M3a plan decision D2 = (a))
+- Date: 2026-11-07
+
+**Context.** ADR-0006 chose SQLAlchemy 2 and Alembic, with migrations tested on SQLite and
+PostgreSQL from M3a (`CLAUDE.md` §8). The PostgreSQL tests need a driver whose license is
+compatible with MIT OR Apache-2.0 (`CLAUDE.md` §2.6), and a server; Henry's machine has neither
+PostgreSQL nor Docker (checked 2026-11-07).
+
+**Decision.**
+- Runtime dependencies: `sqlalchemy` ≥ 2.1.8 (MIT) and `alembic` ≥ 1.20.1 (MIT), with Alembic's
+  dependencies `mako` 1.4.3 (MIT) and `markupsafe` 3.0.4 (BSD-3-Clause).
+- Dev dependency: `pg8000` ≥ 1.31.6 (BSD-3-Clause), a pure-Python, synchronous driver with a
+  SQLAlchemy dialect (`postgresql+pg8000://`), with its dependencies `scramp` 1.5.0 (MIT-0) and
+  `asn1crypto` 1.5.1 (MIT); `python-dateutil` and `tzdata` were already locked. Licenses are
+  from the installed package metadata, checked 2026-11-07.
+- PostgreSQL tests run in CI against a `postgres:18` service container. Locally they are skipped
+  unless `TEST_POSTGRES_URL` is set; CI sets `REQUIRE_POSTGRES=1`, which turns a missing URL
+  into a failure, so the tests cannot quietly stop running.
+
+**Alternatives.** `psycopg` (LGPL-3.0-only) and `psycopg2` (LGPL) are excluded by the license
+rule. `asyncpg` (Apache-2.0) would make the whole storage layer use the async API for one test
+backend. Installing PostgreSQL locally with Homebrew (D2 (b)) remains possible at any time; it is
+not required.
+
+**Consequences.** A PostgreSQL-only failure shows up first in CI, not on the laptop. pg8000 is
+not used in production: the deployed database stays SQLite until a decision says otherwise.
+
