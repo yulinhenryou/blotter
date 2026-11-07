@@ -70,7 +70,10 @@ def test_constraint_violations_are_integrity_errors(
         "INSERT INTO venues (id, revision, name, kind, timezone)"
         " VALUES (:id, 1, :name, :kind, 'UTC')"
     ).bindparams(bindparam("id", type_=Uuid()))
-    with engine.begin() as connection, pytest.raises(IntegrityError):
+    # pytest.raises outside the transaction: the error must leave engine.begin(), which then
+    # rolls back. Inside, begin() would try to commit, and PostgreSQL refuses to commit a
+    # failed transaction.
+    with pytest.raises(IntegrityError), engine.begin() as connection:
         connection.execute(insert, {"id": uuid.uuid7(), "name": name, "kind": kind})
     engine.dispose()
 
