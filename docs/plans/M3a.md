@@ -1,6 +1,6 @@
 # M3a plan — Hand record format and storage (Python, no solver)
 
-Status: **draft (2026-11-07)**, awaiting Henry's decisions D1–D5 (§0.1). Acceptance criteria:
+Status: **accepted (2026-11-07)**; D1–D5 decided as recommended (§0.1). Acceptance criteria:
 `ROADMAP.md` → M3a.
 
 M3a gives captured hands a durable, validated home that the phone (M4a) can sync into. Nothing in
@@ -17,9 +17,12 @@ used by the property tests, and the decision-point extractor all implement that 
 
 ## 0. Before starting
 
-### 0.1 Decisions needed from Henry
+### 0.1 Decisions (made by Henry, 2026-11-07)
 
-| # | Decision | Options (recommended first) | Blocks |
+Decided: **D1 = (a), D2 = (a), D3 = (a), D4 = (a), D5 = (a).** D1 is recorded as an ADR in
+Task 1, D2 in Task 3, D3 in Task 6.
+
+| # | Decision | Options (chosen option first) | Blocks |
 |---|---|---|---|
 | D1 | Game formats that record version 1 must represent | **(a)** No-limit hold'em cash games, 2–10 seats: small and big blind, any number of straddles, optional antes (per player or big-blind ante); rake derived from the pot. Not in v1: run-it-twice, bomb pots, tournaments, other games — each can be added later behind a new `schema_version`. **(b)** as (a) plus run-it-twice (several boards, split results) | Task 1 |
 | D2 | PostgreSQL driver and where PostgreSQL tests run | **(a)** `pg8000` (BSD-3-Clause; synchronous, a supported SQLAlchemy dialect) as a dev-dependency; PostgreSQL tests run in CI against a service container; locally they are skipped unless a test database URL is set, and CI sets a flag that turns the skip into a failure. **(b)** as (a), and also install PostgreSQL locally with Homebrew so every test runs on the laptop | Task 3 |
