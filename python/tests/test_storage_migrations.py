@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import inspect, select
+from sqlalchemy import Uuid, bindparam, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as OrmSession
 
@@ -52,6 +52,26 @@ def test_foreign_keys_are_enforced(database_url: str) -> None:
     with OrmSession(engine) as db, pytest.raises(IntegrityError):
         db.add(orphan)
         db.commit()
+    engine.dispose()
+
+
+@pytest.mark.parametrize(
+    ("name", "kind"),
+    [("Casino", "casino"), (None, "live")],
+    ids=["check constraint", "not null"],
+)
+def test_constraint_violations_are_integrity_errors(
+    database_url: str, name: str | None, kind: str
+) -> None:
+    # Raw SQL, so that the database (not SQLAlchemy's Enum type) has to reject the value.
+    migrate.upgrade(database_url)
+    engine = make_engine(database_url)
+    insert = text(
+        "INSERT INTO venues (id, revision, name, kind, timezone)"
+        " VALUES (:id, 1, :name, :kind, 'UTC')"
+    ).bindparams(bindparam("id", type_=Uuid()))
+    with engine.begin() as connection, pytest.raises(IntegrityError):
+        connection.execute(insert, {"id": uuid.uuid7(), "name": name, "kind": kind})
     engine.dispose()
 
 

@@ -301,6 +301,9 @@ deliberately left out until measurement says otherwise.
   refer to a constraint by name on either backend.
 - SQLite enforces foreign keys only when asked; every connection turns them on
   (`review.storage.db.make_engine`).
+- A violated constraint (foreign key, unique, check, not null) is a SQLAlchemy `IntegrityError`
+  on both backends. pg8000 reports only unique violations that way, so `make_engine` maps the
+  rest of SQLSTATE class 23 to it (found in M3a Task 3's first PostgreSQL run).
 - Money: integer chip amounts in the smallest unit of the session's stakes; the big blind size
   is stored per session so bb values are derived, never stored as the primary truth.
 - Times: UTC, timezone-aware; the venue's timezone stored separately. SQLite drops the zone, so
