@@ -59,6 +59,9 @@ How we will know the decision works (test, benchmark, measurement).
 | 0019 | Public repository with rewritten commit identities | Accepted |
 | 0020 | Exact rationals in tests: `num-rational` as a dev-dependency | Accepted |
 | 0021 | Property tests: `proptest` as a dev-dependency, fixed seeds | Accepted |
+| 0022 | Plots: matplotlib in a separate uv dependency group | Accepted |
+| 0023 | M1 tolerances set from measured runs | Accepted |
+| 0024 | Hand record version 1: scope and rule source | Proposed |
 
 All records below dated 2026-11-03. Proposals 0004 (data format), 0006 (SQLAlchemy + Alembic),
 0007 (details), 0008, 0012, 0013, 0015 and 0016 were accepted by Henry on 2026-11-03; ADR-0014
@@ -423,3 +426,39 @@ addition, exploitability must fall strictly at $T = 10, 100, 10^3,
 means the computation changed, not noise. AC2 is tested as the difference
 $P(\text{bet} \mid K) - 3\,P(\text{bet} \mid J) \to 0$ rather than the ratio named in
 `ROADMAP.md`: the ratio is undefined when $P(\text{bet} \mid J) = 0$, which is an equilibrium.
+
+## ADR-0024: Hand record version 1 — scope and rule source
+
+- Status: Proposed (scope accepted by Henry, 2026-11-07: M3a plan decision D1 = (a); the rule
+  details marked *(house)* in `MATH.md` §1.5 await Henry's review in M3a Task 1)
+- Date: 2026-11-07
+
+**Context.** M3a stores captured hands and must reject impossible ones (`ROADMAP.md` → M3a, AC1).
+That needs a precise statement of which games a record can describe and which betting rules it is
+checked against. Henry plays live and online no-limit hold'em cash games.
+
+**Decision.** Record version 1 (`ARCHITECTURE.md` §7.3) describes no-limit hold'em cash games
+with 2–10 seats: small and big blind, any number of straddles posted by the consecutive seats
+after the big blind, and optional antes (per player, or one big-blind ante). Rake is derived from
+the pot and the entered results, never entered. Not in version 1: run-it-twice, bomb pots,
+tournaments, other games, dead buttons, missed-blind and new-player posts, forced bets posted
+all-in for less, Mississippi or button straddles. Each can be added behind a new
+`schema_version`.
+
+The rules (`MATH.md` §1.5) follow the Poker TDA Rules, 2026 version 1.1 (rules 36-C, 45-A, 49-A,
+49-B, 67-A, checked 2026-11-07), in particular: a raise is at least the largest prior full bet or
+raise of the round; an all-in, or several short all-ins together, totalling less than a full raise
+does not reopen the betting for a player who has already acted. Three conventions are not in the
+TDA text and are marked *(house)*: the minimum opening bet postflop is one big blind; straddles are
+at least twice the previous forced bet; preflop, the last forced bet counts as a full bet, so the
+minimum raise is to twice the big blind or twice the last straddle.
+
+**Alternatives.** (b) Run-it-twice in version 1 — several boards and split results per board;
+deferred because it changes the board, the results and the showdown model at once. A cash-game
+rulebook (e.g. Robert's Rules of Poker) as the primary source — not checked directly; the TDA text
+was available and agrees on the rules used, as far as secondary sources show.
+
+**Consequences.** Hands outside the scope cannot be recorded yet; if Henry meets them often at the
+table, that is the signal for version 2. The TDA rules are written for tournaments: if Henry's
+cardrooms play a house rule that differs (for example on straddles), the validator would reject a
+real hand, so the *(house)* conventions are listed explicitly for review.
