@@ -331,6 +331,8 @@ players ─┐                         venues
 
 Tables marked *(M3a)* exist (migration `0001`, `review.storage.models`); the others are drafts.
 Every table that the phone syncs has a `revision` column (sync semantics: M3a plan, D3).
+A hand is stored as its canonical record (§7.3) in `hands`, `hand_seats` and `actions`, and nothing
+else; `review.storage.repository` maps it both ways and applies the revision rules.
 
 | Table | Key columns |
 |---|---|
