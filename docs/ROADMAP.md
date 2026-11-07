@@ -6,7 +6,8 @@ thresholds that cannot be chosen honestly before a first measurement are marked 
 first measurement]** and are recorded in `DECISIONS.md` when fixed.
 
 Current status: **M0 complete** (skeleton and CI; [`plans/M0.md`](plans/M0.md)). **M1 complete**
-(CFR on Kuhn and Leduc; acceptance evidence in [`plans/M1.md`](plans/M1.md) §5). Next: M3a.
+(CFR on Kuhn and Leduc; acceptance evidence in [`plans/M1.md`](plans/M1.md) §5). Next: M3a
+(plan in review: [`plans/M3a.md`](plans/M3a.md)).
 
 ## Order
 
