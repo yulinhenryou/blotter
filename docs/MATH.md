@@ -290,6 +290,181 @@ effective stack $S$, the acting order, an action abstraction, and **ranges** $r_
   actually played line is always included, so no action translation is needed for the reviewed
   decision itself. (Background on translation: Ganzfried & Sandholm 2013.)
 
+### 1.5 No-limit hold'em: betting rules and pot accounting [M3a]
+
+The rules every stored hand is checked against (`ARCHITECTURE.md` §7.3; validator, test dealer
+and decision-point extraction in M3a all implement this section). Scope of record version 1
+(ADR-0024): no-limit hold'em cash games with 2–10 seats, small and big blind, straddles, antes.
+
+**Source.** Poker TDA Rules, 2026 version 1.1 (21 Sept 2026) **(checked**, rules 36-C, 45-A,
+49-A, 49-B, 67-A, read on pokertda.com on 2026-11-07**)**. The TDA rules are written for
+tournaments; for cash games cardrooms follow house rules, which agree with them on the points
+used here as far as we know, but no cash-game rulebook was checked. Rules marked *(house)* below
+are not in the TDA text; Henry confirmed them as the practice of the cardrooms Henry plays in
+(2026-11-07, ADR-0024).
+
+#### Notation
+
+Seats are numbered clockwise; "after seat $i$" means the next seat clockwise among those dealt in.
+All amounts are integer chips (ADR-0012). For seat $i$:
+
+| Symbol | Meaning |
+|---|---|
+| $s_i$ | starting stack (may be unknown) |
+| $a_i$ | ante posted (dead money, not part of any street's bet) |
+| $x_i$ | chips committed on the current street, blinds and straddles included ("amount to") |
+| $v_i$ | live chips committed in the hand: $\sum_{\text{streets}} x_i$ |
+| $c_i$ | total committed in the hand: $a_i + v_i$ |
+| $w_i$ | chips won (entered, not computed — see below) |
+
+A seat is **folded**, **all-in** ($c_i = s_i$) or **active** (neither). On each street, $B = \max_i
+x_i$ is the **current bet** and $F$ the **full-raise size**.
+
+#### Forced bets and order of action
+
+1. Antes are posted first and are dead: they count in $c_i$, never in $x_i$. A big-blind ante is
+   one ante posted by the big-blind seat.
+2. Non-heads-up, the small blind is the first seat after the button and the big blind the next;
+   heads-up, the button posts the small blind (TDA 36-C). Straddles *(house)* are posted by the
+   consecutive seats after the big blind, each at least twice the previous forced bet. Forced bets
+   are live: they count in $x_i$.
+3. Preflop, the first to act is the seat after the last forced bet (big blind or last straddle).
+   On later streets it is the first non-folded seat after the button. Heads-up this gives TDA
+   36-C — the button acts first preflop and last afterwards — with no special case.
+4. Action moves clockwise, skipping folded and all-in seats.
+
+Not in version 1: dead buttons, missed-blind and new-player posts, a forced bet posted all-in for
+less than its amount, Mississippi or button straddles.
+
+#### Legal actions
+
+At the start of a street: postflop $B = 0$ and $F = $ the big blind *(house: the minimum opening
+bet is one big blind; not stated in the TDA text)*. Preflop $B = $ the last forced bet and $F = B$,
+so the minimum raise is to $2B$ — twice the big blind, or twice the last straddle *(house)*.
+
+For the active seat $i$ to act, with $r_i = s_i - c_i$ chips behind:
+
+| Action | Allowed when | New $x_i$ |
+|---|---|---|
+| fold | always (folding when a check is possible is legal, if unwise) | — |
+| check | $x_i = B$ | $x_i$ |
+| call | $x_i < B$ | $\min(B,\ x_i + r_i)$ — all-in if short |
+| bet | $B = 0$ | $y$ with $y \ge F$, or $y = r_i$ (all-in) |
+| raise | $B > 0$ and seat $i$ has **raise rights** | $y$ with $y \ge B + F$, or $B < y = x_i + r_i$ (all-in) |
+
+After a bet or raise to $y$: if $y - B \ge F$ it is a **full** bet or raise and $F \leftarrow y -
+B$; otherwise (an all-in short of a full raise) $F$ is unchanged. In both cases $B \leftarrow y$.
+Since a full raise is at least the previous $F$, $F$ never decreases, so "the largest prior full
+bet or raise" (TDA 45-A) and "the last full valid bet or raise" (TDA 49-A) are the same number.
+
+**Raise rights.** A seat that has not yet acted on this street has them (a forced bet is not an
+action, so the big blind and straddlers keep their option). A seat that has acted — after which
+$x_i$ was the current bet, or it went all-in — has them again only if $B - x_i \ge F$.
+
+*Why this is TDA 49-A.* The rule: an all-in, or several short all-ins together, totalling less than
+a full raise does not reopen the betting for a player who has already acted. Let $x_i$ be what
+seat $i$ matched when it last acted. If no full raise has happened since, $F$ is unchanged and $B -
+x_i$ is the sum of the short all-ins, so the condition is exactly "they total at least a full
+raise". If a full raise of size $F'$ has happened since, then $B - x_i \ge F'$, and $F' $ is the
+current $F$ unless a later full raise replaced it by $F'' \le B - x_i$ as well. Either way the seat
+has raise rights. Limit poker's 50 % rule (TDA 49-B) does not apply to no-limit.
+
+**End of a street.** A street ends when at most one seat is not folded, or when every active seat
+has acted on it and has $x_i = B$. A street is played only if at least two seats are active when
+it starts; otherwise the remaining board is dealt with no betting.
+
+**End of the hand.** Either one seat is left (it wins everything after the uncalled bet is
+returned), or the river ends with two or more non-folded seats (showdown). The board must then be
+complete — five cards — even if the betting stopped earlier because players were all-in.
+
+#### Uncalled bets and pots
+
+Both are computed on **live** chips $v_i$; antes are dead and always go into the main pot. (On
+totals $c_i$ a big-blind ante breaks things: a big blind who folds to an all-in bet smaller than
+its ante would have the largest total and "get back" chips that were never a bet.)
+
+Let $v_{(1)} \ge v_{(2)}$ be the two largest live totals over **all** seats, folded ones included.
+The seat with $v_{(1)}$ gets $u = v_{(1)} - v_{(2)}$ back (TDA 67-A): the part of its last bet or
+raise that nobody matched. Write $v'_i$ for the live totals after this return and $c'_i = a_i +
+v'_i$.
+
+**Lemma.** After the return, no folded seat has $v'_i$ greater than the largest $v'$ of a non-folded
+seat. *Proof.* Every seat active at the end of a street has $x_i = B$, so seats active at the start
+of a street have equal live totals from earlier streets. A seat folds only when facing a bet, so at
+that moment the seat that made the bet — which acted on this street, so was active at its start —
+has a larger live total. If that seat folds later, it does so facing a still larger one. Live totals
+never fall, so the chain ends at a non-folded seat whose live total exceeds every folded one. The
+return lowers only the top seat, to $v_{(2)}$, which is still at least every folded live total. ∎
+
+**Pots.** Let $L_1 < L_2 < \dots < L_m$ be the distinct values of $v'_i$ over non-folded seats, and
+$L_0 = 0$. Pot $k$ is
+
+$$P_k = [k = 1] \sum_{\text{all } i} a_i \;+\; \sum_{\text{all } i} \big(\min(v'_i, L_k) -
+\min(v'_i, L_{k-1})\big),$$
+
+and its **eligible** seats are the non-folded seats with $v'_i \ge L_k$. Pot 1 is the main pot.
+By the lemma, $\sum_k P_k = \sum_i a_i + \sum_i v'_i = \sum_i c'_i$: every committed chip is in
+exactly one pot. Eligibility is nested — each pot's eligible set contains the next one's — so seat
+$i$ is eligible for exactly pots $1, \dots, t_i$, where $L_{t_i} = v'_i$. (Version 1 excludes a
+seat all-in on its ante, so every non-folded seat is eligible for the main pot.)
+
+#### Results and conservation
+
+Who won is entered, not computed: deciding a showdown needs the hand evaluator (M2), and live
+records often lack the losers' cards. The entered $w_i$ must be **feasible**: $w_i = 0$ for folded
+seats, and for every $j = 1, \dots, m$
+
+$$\sum_{i:\ t_i \le j} w_i \;\le\; \sum_{k \le j} P_k .$$
+
+*Necessary:* seats eligible only for pots $1..j$ can be paid only from those pots. *Sufficient:*
+pay the seats in increasing order of $t_i$, each from the lowest pots with chips left; when the
+seats with $t_i = j$ are paid, the chips taken so far are at most $\sum_{k\le j} P_k$ and all of
+pots $1..j$ are open to them, so the greedy never runs out. (A Hall-type condition; the nesting
+is what makes the $m$ prefix sums enough.)
+
+**Rake** is derived, $\rho = \sum_k P_k - \sum_i w_i$, and must be $\ge 0$; the prefix condition
+with $j = m$ says exactly that. With final stacks $f_i = s_i - c'_i + w_i$ and nets $n_i = w_i -
+c'_i$:
+
+$$\sum_i f_i + \rho = \sum_i s_i, \qquad \sum_i n_i = -\rho .$$
+
+Hero's net $n_{\text{hero}}$ is derived the same way. A known stack bounds the totals: $c_i \le
+s_i$, with equality exactly when the seat is all-in. If a seat is all-in and its stack is unknown,
+the stack is derived: $s_i = c_i$.
+
+#### Worked examples (fixtures for M3a Task 2)
+
+Checked by hand and with an independent throwaway script; blinds 1/2 throughout.
+
+**Example 1 — three-way all-in, one side pot.** Button A has 50, small blind B 120, big blind C
+200. Preflop: B posts 1, C posts 2; A raises all-in to 50 (full: $50 - 2 = 48 \ge F = 2$, so $F
+\leftarrow 48$); B raises all-in to 120 (full: $70 \ge 48$); C calls 120. The street ends; with
+fewer than two active seats the board is dealt with no more betting.
+
+- Totals $c = (50, 120, 120)$; $u = 120 - 120 = 0$.
+- Levels $L = (50, 120)$: main pot $P_1 = 50 + 50 + 50 = 150$, eligible A, B, C; side pot $P_2 =
+  70 + 70 = 140$, eligible B, C. $P_1 + P_2 = 290 = \sum c$.
+- Entered result $w_A = 150$, $w_C = 135$: prefix sums $150 \le 150$ and $285 \le 290$, feasible;
+  rake $\rho = 5$; nets $(+100, -120, +15)$, sum $-5 = -\rho$.
+- Entered result $w_A = 160$, $w_C = 130$: the total is fine ($290 \le 290$) but the first prefix
+  fails ($160 > 150$) — A cannot win from the side pot. Rejected, with the error on $w_A$.
+
+**Example 2 — a short all-in does not reopen the betting.** On the flop A bets 100 ($F = 100$). B
+goes all-in for 150: $150 - 100 = 50 < 100$, not a full raise, $F$ stays 100, $B = 150$. C has not
+acted, so C may raise, to at least $150 + 100 = 250$; C calls 150. Back to A: $B - x_A = 50 < 100$,
+so A may only call or fold. A record in which A raises here is rejected, with the error on that
+action.
+
+**Example 3 — two short all-ins together reopen it.** As Example 2, but C goes all-in for 210
+($210 - 150 = 60 < 100$, again not full). Back to A: $B - x_A = 110 \ge 100$, so A has raise
+rights; the minimum raise is to $210 + 100 = 310$, the last full raise being still 100 (TDA 49-A).
+
+**Example 4 — uncalled bet.** Preflop, F raises to 100 and G goes all-in for 500; everyone else,
+including the blinds, folds, and F folds. Totals: SB 1, BB 2, F 100, G 500. $u = 500 - 100 = 400$
+goes back to G, so $v'_G = 100$. One level, $L_1 = 100$: $P_1 = 1 + 2 + 100 + 100 = 203$, eligible
+G only. With $w_G = 203$: $\rho = 0$, $n_G = 203 - 100 = +103$. With a big-blind ante of 2 as well,
+the big blind's total is 4 but its live total still 2: $u$ is still 400, and $P_1 = 2 + 203 = 205$.
+
 ---
 
 ## 2. Regret minimization and CFR [M1, M2]
@@ -1347,6 +1522,10 @@ Plugging in a noisy $\hat\mu$ over-bets; we integrate over the posterior instead
 ---
 
 ## References
+
+Rules of the game
+- Poker Tournament Directors Association (2026). *Poker TDA Rules*, version 1.1, 21 September
+  2026. pokertda.com. **(checked**, rules 36-C, 45-A, 49-A, 49-B, 67-A, 2026-11-07**)**
 
 Games and equilibrium computation
 - Kuhn, H. W. (1950). A simplified two-person poker. *Contributions to the Theory of Games I*.
