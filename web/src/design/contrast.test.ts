@@ -40,7 +40,7 @@ const darkStart = css.indexOf('@media (prefers-color-scheme: dark)')
 const light = colors(css.slice(0, darkStart))
 const dark = { ...light, ...colors(css.slice(darkStart)) }
 
-const TEXT = ['text', 'text-muted', 'accent', 'danger']
+const TEXT = ['text', 'text-muted', 'accent', 'danger', 'suit-red']
 const SURFACES = ['bg', 'surface', 'surface-sunken']
 const MARKS = ['ev-gain', 'ev-loss']
 

@@ -328,6 +328,53 @@ Each task is one PR (D7).
 - Tests: component tests for each step, including incomplete hands (villain cards unknown,
   approximate stacks; AC3) and the worked examples entered through the screens and compared with
   the expected records.
+- As implemented: `web/src/capture/`. The hand being entered is plain data (`form.ts`,
+  `HandForm`): the setup answers, the list of moves, the board, the end-of-hand answers. Which
+  step the screen shows (setup, actions, board, "End here / Keep entering", end) is not stored but
+  derived by replaying the moves through `rules/` (`phaseOf`), so undo is "drop the last move and
+  the board cards entered after it" and a resumed draft opens at the right step. `toRecord` turns a
+  finished form into a sync record (version 2 when the hand ends at hero's fold, ADR-0030).
+  `sizes.ts` holds the presets of `CAPTURE.md` §1.5 and the messages for typed amounts;
+  `positions.ts` the labels of `MATH.md` §5.1 and the button that gives hero a chosen label;
+  `data.ts` everything the screens read and write in the store. Screens: capture home (session,
+  sync state, "Needs attention", entry times, export), new session, session (hands, the random
+  sample line, settings and end of session), and the hand screen with its steps (`SetupStep`,
+  `ActStep` with the size panel and the board, `EndStep`). Shared pieces: `CardPicker`,
+  `NumberPad` (with "≈" for approximate amounts), `TableMap`, `Chips`. Sync runs on open, on
+  coming back online, after each save and on "Sync now". The ESLint rule of §1.1 is in
+  `web/eslint.config.js` (checked once with a probe file in `capture/` importing from `../api/`:
+  ESLint reports the error).
+  Choices made while building it:
+  - Editing a saved hand reopens its form, kept in the settings store under `hand-form:<id>`; the
+    record alone does not say which answers were typed and which were proposed.
+  - Conflicts show only "Keep mine" (a revision above the server's). "Keep the server's" is not
+    built: with one phone entering hands, a conflict means the phone holds the newer edit.
+  - At a showdown the villains' cards are asked one seat at a time, from the button's left
+    (the order they act after the flop), each with "Unknown" and "Mucked".
+  - Amounts won are proposed from the session's rake rule: rounded down, capped, "no flop, no
+    drop"; the rake comes out of the main pot first; odd chips go one each to the winners nearest
+    the button's left. A pot with one eligible seat needs no tap.
+  - The table map has two tap modes during setup ("Deal in / out", "Name a player"); during the
+    actions a tap is "fold to".
+  - The session's currency is not asked (sessions are stored with currency `null`).
+
+  Tests: `form.test.ts` 25 (labels, phases, fold to, undo, hero's fold and its version-2 record,
+  pots, rake, odd chips, infeasible amounts, which stacks are asked, sizes); `screens.test.tsx` 14
+  (new session and its defaults, blinds out of order refused, a draft resumed and marked
+  interrupted, discard, undo, a refused "fold to", the minimum-raise message, an incomplete hand
+  for AC3 — villain cards unknown, approximate stack —, sync with the server down and back,
+  "Needs attention" with the server's issue in words and a corrected revision, a conflict and
+  "Keep mine", known players and the stack prefill, entry times, the export); `worked.test.tsx`
+  6: the hands of `CAPTURE.md` §5 entered by tapping the screens, each compared with the full
+  expected record, with the taps counted — H1 37, H2 11, H2b 8, H3 24, H4 32, H5 20, the
+  budget's totals. H3 matched with two compensating differences: the budget counted an "End
+  here" the screen does not need and missed the tap that opens the stack pad (`CAPTURE.md` §5
+  corrected). The six records the screen tests produce were posted once to the real API (a
+  TestClient on a temporary SQLite database, Alembic-migrated): all `created`, and `unchanged`
+  when posted again. A walkthrough in the browser at phone width (375 × 812, dark) of a session
+  and one hand to showdown found a display bug — before a winner was tapped, the rake shown was
+  the whole pot — fixed with a test. Vitest 364 passed. Not yet verified: a real iPhone, Safari's
+  IndexedDB, and the end-to-end run against the real server (Task 7).
 
 ### Task 7 — End-to-end tests and CI
 

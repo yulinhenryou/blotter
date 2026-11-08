@@ -1,0 +1,70 @@
+.picker {
+  margin: var(--space-4) 0;
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-lg);
+}
+
+/* 4 columns across a 375 px phone: about 80 px wide, 44 px tall per card (docs/CAPTURE.md §2). */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+}
+
+.card {
+  min-height: var(--touch-target);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-1);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.card[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.card:disabled:not([aria-pressed='true']) {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.red {
+  color: var(--color-suit-red);
+}
+
+.card.red[aria-pressed='true'] {
+  color: var(--color-on-accent);
+}
+
+.extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.cards {
+  display: inline-flex;
+  gap: 0.2em;
+  font-variant-numeric: tabular-nums;
+}
+
+.none {
+  color: var(--color-text-muted);
+}

@@ -28,6 +28,26 @@ export default defineConfig([
     },
   },
   {
+    // Capture never shows analysis (ADR-0010). Structurally: its screens import only the rules,
+    // the phone's store, sync and the design system (docs/plans/M4a.md §1.1). Tests may also use
+    // the test helpers and the app's routes.
+    files: ['src/capture/**/*.{ts,tsx}'],
+    ignores: ['src/capture/**/*.test.{ts,tsx}', 'src/capture/testing.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '^\\.\\./(?!(rules|store|sync|design)/)',
+              message: 'Capture imports only rules, store, sync and design (ADR-0010).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['eslint.config.js'],
     extends: [js.configs.recommended, prettier],
     languageOptions: { globals: globals.node },
