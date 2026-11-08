@@ -64,6 +64,10 @@ How we will know the decision works (test, benchmark, measurement).
 | 0024 | Hand record version 1: scope and rule source | Accepted |
 | 0025 | Storage dependencies; PostgreSQL in CI | Accepted |
 | 0026 | One write path: `POST /sync` by revision | Accepted |
+| 0027 | Deployment: server on Henry's Mac, reached through Tailscale | Accepted |
+| 0028 | Betting rules on the phone too, cross-tested against Python | Accepted |
+| 0029 | M4a acceptance criterion 5 reworded: Lighthouse has no PWA category | Accepted |
+| 0030 | Hand record version 2: a hand may end at hero's fold | Accepted |
 
 All records below dated 2026-11-03. Proposals 0004 (data format), 0006 (SQLAlchemy + Alembic),
 0007 (details), 0008, 0012, 0013, 0015 and 0016 were accepted by Henry on 2026-11-03; ADR-0014
@@ -530,3 +534,102 @@ transaction for the whole batch would let one bad hand undo a session's worth of
 **Consequences.** Retrying a batch is always safe. A conflict is reported, never resolved on the
 server; resolving it (keep mine, keep the server's) is the phone's job in M4a. A batch costs one
 transaction per item, which is fine at live-poker volumes (not yet measured for large imports).
+
+## ADR-0027: Deployment: server on Henry's Mac, reached through Tailscale
+
+- Status: Accepted (Henry, 2026-11-08: M4a plan decision D1 = (a))
+- Date: 2026-11-08
+
+**Context.** From M4a the phone must reach the server to sync captured hands, and later to show
+reviews. Henry is the only user. `ARCHITECTURE.md` §8 left two options open: a home computer over
+a private network, or a small hosted instance with authentication.
+
+**Decision.** The server runs on Henry's Mac: one FastAPI process serving the API and the built web
+app (one origin), listening on `127.0.0.1` only. The phone reaches it through Tailscale;
+`tailscale serve` provides an HTTPS address on Henry's `ts.net` name with a certificate Tailscale
+provisions, and forwards to the local port. No authentication is built: membership of the
+private network is the access control, which requires that it holds only Henry's devices.
+Capture stays offline-first; while the Mac is asleep, hands wait on the phone.
+
+**Alternatives.** (b) A small hosted server with authentication: sync at any time, but it needs a
+login system, a monthly cost and hands stored on someone else's machine, for one user.
+
+**Consequences.** No account system to build or secure. Sync depends on the Mac being awake; the
+phone can export unsynced records as a file in case it is not for a long time. Tailscale is a
+program Henry installs, not a dependency of the code. If the project ever has a second user, this
+ADR is superseded.
+
+**Verification.** M4a Task 8: install on the Mac and the iPhone, open the app over HTTPS, sync a
+hand; recorded in `DEVELOPMENT.md` with the date.
+
+## ADR-0028: Betting rules on the phone too, cross-tested against Python
+
+- Status: Accepted (Henry, 2026-11-08: M4a plan decision D2 = (a))
+- Date: 2026-11-08
+
+**Context.** Fast entry needs a phone that knows whose turn it is and which actions and amounts
+are legal, offline. The rules live in Python (`review.domain`, `MATH.md` §1.5); the phone runs
+TypeScript.
+
+**Decision.** The rules of `MATH.md` §1.5 are implemented a second time in TypeScript
+(`web/src/rules/`), from the specification rather than by transcribing the Python. A Python
+script writes a corpus from the independent test dealer (`python/tests/dealer.py`) and the
+checker — for each hand, the state before every action (seat to act, legal kinds, minimum and
+maximum amounts), the street ends and the final pots — with a fixed seed; it is committed with a
+staleness test, and Vitest replays every hand through the TypeScript rules and compares. The
+server checks every record and remains the authority.
+
+**Alternatives.** (b) Free-form entry checked only at sync: errors would surface hours later, and
+entry would be slower. Calling the server to check each action: not offline. Running the Python
+rules in the browser (e.g. Pyodide): a large download for a few hundred lines of rules.
+
+**Consequences.** Two implementations must stay in step; the corpus makes drift a failing test,
+and a rule change now touches `MATH.md`, Python, TypeScript and the corpus in one PR. Record
+version 2 (ADR-0030) is in the corpus from the start.
+
+## ADR-0029: M4a acceptance criterion 5 reworded: Lighthouse has no PWA category
+
+- Status: Accepted (Henry, 2026-11-08: M4a plan decision D5 = (a))
+- Date: 2026-11-08
+
+**Context.** M4a criterion 5 read "Lighthouse reports the app as installable". Lighthouse removed
+its PWA category in version 12 (Lighthouse changelog, checked 2026-11-08), so the criterion
+cannot be checked as written.
+
+**Decision.** Criterion 5 becomes: the production build meets Chrome's installability criteria —
+a web app manifest with the required fields and a registered service worker — checked by an
+end-to-end test; the app is installed on Henry's iPhone and opens offline, checked by hand and
+recorded with the date and the iOS version; WCAG AA contrast for all text tokens.
+
+**Alternatives.** (b) Keep the wording and pin a Lighthouse version older than 12: it would test
+criteria Chrome no longer uses, and still say nothing about Safari on the iPhone.
+
+**Consequences.** The phone Henry actually uses is checked directly; the automated part is an
+ordinary end-to-end test.
+
+## ADR-0030: Hand record version 2: a hand may end at hero's fold
+
+- Status: Accepted (Henry, 2026-11-08, while specifying the capture flow in M4a Task 1)
+- Date: 2026-11-08
+
+**Context.** Record version 1 (ADR-0024) must describe a hand to its end: every action, the board
+for every street reached, and the results. After hero folds, the rest of the hand says nothing
+about hero's decisions, Henry often does not see or remember it, and random-sample hands
+(`MATH.md` §4.5) mostly end with hero folding preflop. Under version 1 such hands are slow to
+enter or cannot be saved at all.
+
+**Decision.** Record version 2 adds `ends_at_hero_fold` (default `false`). When `true`, the last
+action is hero's fold, the board holds no card dealt after it, `results` is empty, and the
+derived rake is `null`; everything up to the fold is checked by the rules of `MATH.md` §1.5 as
+before; hero's net is derived (`MATH.md` §1.5, "Hands that end at hero's fold"). A version 1
+record is a version 2 record with the flag `false`. Implemented in M4a Task 2: model, checker,
+storage (a migration adding the flag and making the rake nullable), sync and the regenerated
+schemas.
+
+**Alternatives.** Keep version 1 and have Henry enter the rest of the hand: impractical for random
+samples, and invites invented actions. Fill in the rest automatically: that would store actions
+that did not happen.
+
+**Consequences.** Hands logged this way have no rake and no other seats' results; statistics that
+need them use complete records only, and say so. Decision points and hero's net are unaffected.
+Showdown information about villains is lost unless Henry enters it as their hole cards.

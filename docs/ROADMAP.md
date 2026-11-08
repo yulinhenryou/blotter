@@ -137,7 +137,9 @@ Deliverables
   fractions, "unknown" for villain cards and approximate stacks, drafts.
 - PWA: installable, offline queue in IndexedDB, sync to `POST /sync`.
 - Design system foundations: tokens, typography (serif headings, tabular figures), dark mode.
-- Deployment decision for phone access (ADR; `ARCHITECTURE.md` §8).
+- Deployment decision for phone access (ADR-0027; `ARCHITECTURE.md` §8).
+- Hand record version 2: a hand may end at hero's fold (ADR-0030), so random-sample hands are
+  quick to log. Capture flow specified in `CAPTURE.md`.
 
 Acceptance criteria
 1. **Entry speed, measured:** Henry enters 10 real key hands on a phone; the median time from
@@ -146,7 +148,11 @@ Acceptance criteria
 2. Capture works in airplane mode and syncs without duplicates when back online (e2e test).
 3. Incomplete hands (villain cards unknown, approximate stacks) can be saved in the same flow.
 4. Capture routes render no EV, strategy or opponent output (e2e test asserts absence).
-5. Lighthouse reports the app as installable; WCAG AA contrast for all text tokens.
+5. The production build meets Chrome's installability criteria (a web app manifest with the
+   required fields and a registered service worker; e2e test), and the app is installed on Henry's
+   iPhone and opens offline (checked by hand, recorded with date and iOS version); WCAG AA
+   contrast for all text tokens. (Reworded 2026-11-08, ADR-0029: Lighthouse no longer has a PWA
+   category.)
 
 ---
 

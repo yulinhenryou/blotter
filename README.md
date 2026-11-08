@@ -46,6 +46,7 @@ you play.
 - [Vision](docs/VISION.md) — goals, users, pillars, non-goals
 - [Architecture](docs/ARCHITECTURE.md) — layers, interfaces, data model, technology choices
 - [Mathematical models](docs/MATH.md) — outline of the game theory and statistics, with references
+- [Capture flow](docs/CAPTURE.md) — how a hand is entered on the phone, screen by screen
 - [Roadmap](docs/ROADMAP.md) — milestones and acceptance criteria
 - [Decisions](docs/DECISIONS.md) — architecture decision records
 - [Development](docs/DEVELOPMENT.md) — setup, checks, running locally
