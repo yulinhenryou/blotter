@@ -1,7 +1,8 @@
 # M4a plan — Phone capture (Web)
 
-Status: **draft (2026-11-08)**. D1–D4 decided by Henry on 2026-11-08 (§0.1); D5–D7 proposed,
-decided when the plan is accepted. Acceptance criteria: `ROADMAP.md` → M4a.
+Status: **accepted (2026-11-08)**; D1–D4 decided by Henry, D5–D7 decided as recommended when
+Henry accepted the plan, the same day (§0.1). Acceptance criteria: `ROADMAP.md` → M4a (criterion
+5 reworded by D5 in Task 1).
 
 M4a is where real hands start to accumulate. Henry logs a key hand on an iPhone, at the table or
 on a break, in under a minute, with or without a network; the hand waits on the phone and reaches
@@ -21,8 +22,9 @@ the offline store and the screens then implement that one description.
 
 ### 0.1 Decisions
 
-D1–D4 decided by Henry, 2026-11-08 (chosen option first, in bold). D5–D7 are proposals (recommended
-option first, in bold); they are decided when Henry accepts this plan.
+Decided by Henry on 2026-11-08: **D1 = (a), D2 = (a), D3 = iPhone, D4 = (a)**, and with the
+acceptance of this plan **D5 = (a), D6 = (a), D7 = (a)**. The chosen option is first, in bold. D1,
+D2 and D5 are recorded as ADRs in Task 1.
 
 | # | Decision | Options | Blocks |
 |---|---|---|---|
@@ -30,9 +32,9 @@ option first, in bold); they are decided when Henry accepts this plan.
 | D2 | Whether the phone knows the betting rules | **(a) Decided.** The rules of `MATH.md` §1.5 (whose turn, legal actions, minimum and maximum amounts, when a street closes, pots) are implemented a second time in TypeScript, so the entry screen offers only legal actions and catches mistakes offline, at the moment of entry. Agreement with the Python implementation is tested on a shared corpus of hands generated in Python (Task 3). The server stays the authority: it still checks every record. **(b)** The phone does free-form entry; errors surface only at sync | Tasks 3, 5 |
 | D3 | Henry's phone | **iPhone (Safari, Home Screen web app).** Consequences in §1.6: no background sync (the app syncs while it is open); storage persistence to be checked on the device; WebKit in the end-to-end tests | Tasks 4, 6, 7 |
 | D4 | Known opponents | **(a) Decided.** Optional: every seat is anonymous by default; tapping a seat lets Henry pick a known player or type a new nickname. The data serves the opponent models of M7. **(b)** Anonymous seats only in M4a | Task 5 |
-| D5 | Acceptance criterion 5, "Lighthouse reports the app as installable" | **(a)** Reworded: "the production build meets Chrome's installability criteria (a web app manifest with the required fields and a registered service worker, checked by an end-to-end test), and the app is installed on Henry's iPhone and opens offline (checked by hand, recorded with date and iOS version); WCAG AA contrast for all text tokens". Reason: Lighthouse removed its PWA category in version 12 (Lighthouse changelog), so the criterion as written can no longer be checked. **(b)** Keep the wording and pin an old Lighthouse | Tasks 6, 7 |
-| D6 | Random-sample protocol (`MATH.md` §4.5) | **(a)** The app offers `record_reason` on every hand (default `notable`); the random-sample protocol is a written rule Henry follows at the table, drafted together in Task 1 and added to `MATH.md` §4.5, with at most a passive reminder in the session screen (no notifications: a Home Screen web app cannot raise them without a push server). **(b)** Defer the protocol to M5; `random_sample` stays available but unused | Task 1 |
-| D7 | Review cadence | **(a)** As in M3a: one PR per task; each waits for Henry's review and merge. **(b)** Claude merges when CI is green; Henry reviews afterwards | all |
+| D5 | Acceptance criterion 5, "Lighthouse reports the app as installable" | **(a) Decided.** Reworded: "the production build meets Chrome's installability criteria (a web app manifest with the required fields and a registered service worker, checked by an end-to-end test), and the app is installed on Henry's iPhone and opens offline (checked by hand, recorded with date and iOS version); WCAG AA contrast for all text tokens". Reason: Lighthouse removed its PWA category in version 12 (Lighthouse changelog), so the criterion as written can no longer be checked. **(b)** Keep the wording and pin an old Lighthouse | Tasks 6, 7 |
+| D6 | Random-sample protocol (`MATH.md` §4.5) | **(a) Decided.** The app offers `record_reason` on every hand (default `notable`); the random-sample protocol is a written rule Henry follows at the table, drafted together in Task 1 and added to `MATH.md` §4.5, with at most a passive reminder in the session screen (no notifications: a Home Screen web app cannot raise them without a push server). **(b)** Defer the protocol to M5; `random_sample` stays available but unused | Task 1 |
+| D7 | Review cadence | **(a) Decided.** As in M3a: one PR per task; each waits for Henry's review and merge. **(b)** Claude merges when CI is green; Henry reviews afterwards | all |
 
 ### 0.2 Dependencies
 
