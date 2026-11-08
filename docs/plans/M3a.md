@@ -1,7 +1,7 @@
 # M3a plan — Hand record format and storage (Python, no solver)
 
 Status: **accepted (2026-11-07)**; D1–D5 decided as recommended (§0.1). Acceptance criteria:
-`ROADMAP.md` → M3a. Progress: Tasks 1–3 merged; Task 4 in review.
+`ROADMAP.md` → M3a. Progress: Tasks 1–4 merged; Task 5 in review.
 
 M3a gives captured hands a durable, validated home that the phone (M4a) can sync into. Nothing in
 it calls the engine: every decision point is stored unscored, with the reason "engine not
@@ -278,6 +278,20 @@ Each task is one PR (D5). "Rules" or "Math" is worked out in the session before 
 - Tests: AC5 — for generated hands, the number of decision points equals the number of hero
   actions other than posts, and each refers to an existing action; hand-classified fixtures for
   every key column.
+- As implemented: Henry accepted the drafted classes as they were (2026-11-08, D4);
+  `MATH.md` §5.1 is classifier version 1. `ledger/situations.py` holds the vocabulary and the pure
+  rules (position labels, buckets compared exactly as fractions, texture);
+  `ledger/decisions.py` replays the canonical record and reads each situation just before hero
+  acts. Migration `0002` adds `decision_points` with primary key (hand_id, action_seq), which
+  refers to `actions`; its key columns are plain text, so a later classifier version needs no
+  migration. `save_hand` writes the decision points with the hand and rewrites them on a
+  replace; `load_decision_points` reads them back. Tests: AC5 as properties over dealt hands
+  (one point per hero action, columns present exactly where they apply, an incomplete record
+  changes only the depth bucket); hand-classified fixtures — the §5.1 worked example, Examples
+  1, 3 and 4 of §1.5, a straddled 4-bet pot and a three-way 3-bet pot — and boundary values for
+  every bucket; decision points round-trip through the database on both backends. Fifteen
+  injected faults in the ledger: fourteen caught at first; the missed one (texture priority)
+  led to two more fixtures, after which it and a second priority fault were caught.
 
 ### Task 6 — API: sync and reads
 

@@ -13,7 +13,8 @@ from review.storage import migrate
 from review.storage.db import make_engine
 from review.storage.models import Base, HandSeat, Session
 
-TABLES = {"venues", "players", "sessions", "hands", "hand_seats", "actions"}
+TABLES_0001 = {"venues", "players", "sessions", "hands", "hand_seats", "actions"}
+TABLES = TABLES_0001 | {"decision_points"}  # 0002
 
 
 def tables(url: str) -> set[str]:
@@ -36,6 +37,15 @@ def test_downgrade_to_base_and_upgrade_again(database_url: str) -> None:
     assert tables(database_url) == {"alembic_version"}
     migrate.upgrade(database_url)
     assert tables(database_url) == TABLES | {"alembic_version"}
+
+
+def test_migrations_go_up_and_down_one_step_at_a_time(database_url: str) -> None:
+    migrate.upgrade(database_url, "0001")
+    assert tables(database_url) == TABLES_0001 | {"alembic_version"}
+    migrate.upgrade(database_url, "0002")
+    assert tables(database_url) == TABLES | {"alembic_version"}
+    migrate.downgrade(database_url, "0001")
+    assert tables(database_url) == TABLES_0001 | {"alembic_version"}
 
 
 def test_models_and_migrations_agree(database_url: str) -> None:

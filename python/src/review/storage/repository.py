@@ -39,8 +39,28 @@ from review.domain.record import (
     Result,
     SeatEntry,
     Stakes,
+    Street,
 )
-from review.storage.models import Hand, HandAction, HandSeat, HandSource
+from review.ledger import CLASSIFIER_VERSION, DecisionPoint, Situation, Texture, decision_points
+from review.ledger.situations import (
+    BoardSuits,
+    Depth,
+    HighCard,
+    Initiative,
+    InPosition,
+    NewCard,
+    Pairing,
+    Players,
+    PositionGroup,
+    PotType,
+    Size,
+    Spot,
+    TextureClass,
+)
+from review.storage.models import DecisionPointRow, Hand, HandAction, HandSeat, HandSource
+
+UNSCORED_REASON = "engine_not_available"
+"""Why every decision point is unscored until the evaluator exists (M3b)."""
 
 
 class SaveOutcome(StrEnum):
@@ -96,7 +116,9 @@ def save_hand(db: OrmSession, record: HandRecord) -> Saved:
         _insert_children(db, record)
         return Saved(SaveOutcome.CREATED, record.revision)
     if record.revision > stored_revision:
-        # Children first: actions refer to hand_seats, hand_seats to hands.
+        # Children first: decision points refer to actions, actions to hand_seats, hand_seats
+        # to hands.
+        db.execute(delete(DecisionPointRow).where(DecisionPointRow.hand_id == record.id))
         db.execute(delete(HandAction).where(HandAction.hand_id == record.id))
         db.execute(delete(HandSeat).where(HandSeat.hand_id == record.id))
         db.execute(update(Hand).where(Hand.id == record.id).values(_hand_row(record)))
@@ -258,14 +280,111 @@ def _insert_children(db: OrmSession, r: HandRecord) -> None:
         }
         for seq, a in enumerate(r.actions)
     ]
-    # Seats before actions: an action's (hand_id, seat) refers to a hand_seats row.
+    # Seats before actions before decision points: each refers to the one before.
     if seat_rows:
         db.execute(insert(HandSeat), seat_rows)
     if action_rows:
         db.execute(insert(HandAction), action_rows)
+    point_rows = [_decision_row(r.id, p) for p in decision_points(r)]
+    if point_rows:
+        db.execute(insert(DecisionPointRow), point_rows)
+
+
+def _decision_row(hand_id: uuid.UUID, point: DecisionPoint) -> dict[str, Any]:
+    s = point.situation
+    t = s.texture
+    return {
+        "hand_id": hand_id,
+        "action_seq": point.action_seq,
+        "classifier_version": CLASSIFIER_VERSION,
+        "street": s.street.value,
+        "spot": s.spot.value,
+        "pot_type": _value(s.pot_type),
+        "players": s.players.value,
+        "position_label": s.position_label,
+        "position_group": s.position_group.value,
+        "in_position": _value(s.in_position),
+        "initiative": _value(s.initiative),
+        "depth": s.depth.value,
+        "size": _value(s.size),
+        "facing_all_in": s.facing_all_in,
+        "board_suits": t.suits.value if t else None,
+        "board_pairing": t.pairing.value if t else None,
+        "board_high_card": t.high_card.value if t else None,
+        "board_connected": t.connected if t else None,
+        "texture_class": t.texture_class.value if t else None,
+        "new_card": _value(t.new_card) if t else None,
+        "line": s.line,
+        "straddled": s.straddled,
+        "scorable": False,
+        "unscored_reason": UNSCORED_REASON,
+    }
+
+
+def _value(member: StrEnum | None) -> str | None:
+    return None if member is None else member.value
 
 
 # --- rows -> record ----------------------------------------------------------------------------
+
+
+def load_decision_points(db: OrmSession, hand_id: uuid.UUID) -> tuple[DecisionPoint, ...]:
+    """Read a stored hand's decision points, in order.
+
+    Raises
+    ------
+    ValueError
+        If a row was written by another classifier version: its keys mean something else and
+        must be recomputed first.
+    """
+    rows = db.scalars(
+        select(DecisionPointRow)
+        .where(DecisionPointRow.hand_id == hand_id)
+        .order_by(DecisionPointRow.action_seq)
+        .execution_options(populate_existing=True)
+    ).all()
+    points = []
+    for row in rows:
+        if row.classifier_version != CLASSIFIER_VERSION:
+            raise ValueError(
+                f"decision point ({hand_id}, {row.action_seq}) has classifier version "
+                f"{row.classifier_version}; this code reads only {CLASSIFIER_VERSION}"
+            )
+        texture = None
+        if row.texture_class is not None:
+            # _decision_row writes the texture columns all together or not at all.
+            assert row.board_suits and row.board_pairing and row.board_high_card
+            assert row.board_connected is not None
+            texture = Texture(
+                suits=BoardSuits(row.board_suits),
+                pairing=Pairing(row.board_pairing),
+                high_card=HighCard(row.board_high_card),
+                connected=row.board_connected,
+                texture_class=TextureClass(row.texture_class),
+                new_card=_opt(NewCard, row.new_card),
+            )
+        situation = Situation(
+            street=Street(row.street),
+            spot=Spot(row.spot),
+            pot_type=_opt(PotType, row.pot_type),
+            players=Players(row.players),
+            position_label=row.position_label,
+            position_group=PositionGroup(row.position_group),
+            in_position=_opt(InPosition, row.in_position),
+            initiative=_opt(Initiative, row.initiative),
+            depth=Depth(row.depth),
+            size=_opt(Size, row.size),
+            facing_all_in=row.facing_all_in,
+            texture=texture,
+            line=row.line,
+            straddled=row.straddled,
+        )
+        points.append(DecisionPoint(row.action_seq, situation))
+    return tuple(points)
+
+
+def _opt[E: StrEnum](enum: type[E], value: str | None) -> E | None:
+    return None if value is None else enum(value)
 
 
 def _two_cards(text: str | None) -> tuple[Card, Card] | None:

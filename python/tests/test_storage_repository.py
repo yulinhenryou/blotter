@@ -17,12 +17,21 @@ from sqlalchemy.orm import Session as OrmSession
 
 from review.domain import HandRecord, check
 from review.domain.record import POSTS, SeatEntry
+from review.ledger import DecisionPoint, decision_points
 from review.storage import migrate
 from review.storage.db import make_engine
-from review.storage.models import Hand, HandAction, HandSeat, Player, Session
+from review.storage.models import (
+    DecisionPointRow,
+    Hand,
+    HandAction,
+    HandSeat,
+    Player,
+    Session,
+)
 from review.storage.repository import (
     NotCanonicalError,
     SaveOutcome,
+    load_decision_points,
     load_hand,
     save_hand,
 )
@@ -94,6 +103,7 @@ def engine(database_url: str) -> Iterator[Engine]:
 def _fresh(engine: Engine, *records: HandRecord) -> None:
     """Delete every hand, and make sure the sessions and players the records refer to exist."""
     with OrmSession(engine) as db, db.begin():
+        db.execute(delete(DecisionPointRow))
         db.execute(delete(HandAction))
         db.execute(delete(HandSeat))
         db.execute(delete(Hand))
@@ -123,6 +133,11 @@ def _load(engine: Engine, record: HandRecord) -> HandRecord | None:
         return load_hand(db, record.id)
 
 
+def _load_points(engine: Engine, record: HandRecord) -> tuple[DecisionPoint, ...]:
+    with OrmSession(engine) as db:
+        return load_decision_points(db, record.id)
+
+
 @shared_db
 @given(stored_records())
 def test_record_rows_record_is_the_identity(engine: Engine, record: HandRecord) -> None:
@@ -133,6 +148,8 @@ def test_record_rows_record_is_the_identity(engine: Engine, record: HandRecord) 
     assert loaded is not None
     if loaded.played_at is not None:
         assert loaded.played_at.utcoffset() == timedelta(0)
+    # The decision points are written with the hand and read back unchanged too.
+    assert _load_points(engine, record) == decision_points(record)
 
 
 @shared_db
@@ -158,6 +175,7 @@ def test_a_higher_revision_replaces_the_hand(
     with OrmSession(engine) as db:
         rows = db.scalar(select(func.count()).select_from(HandAction))
     assert rows == len(second.actions)  # the old actions are gone, not left behind
+    assert _load_points(engine, first) == decision_points(second)
 
 
 @shared_db
