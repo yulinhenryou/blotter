@@ -2,7 +2,7 @@
 // the test moves, and a `tap` that counts taps (docs/CAPTURE.md §5 counts them the same way: one
 // touch of a button, a card, a seat or a key).
 
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 
 import { makeRoutes } from '../app/routes.tsx'
@@ -124,6 +124,15 @@ export async function newHand(h: Harness): Promise<void> {
 export async function save(h: Harness): Promise<void> {
   tap(h, screen.getByRole('button', { name: 'Save' }))
   await screen.findByText(/saved\./)
+}
+
+/**
+ * Retry an assertion until it holds (or 5 s pass). Background work — a sync after a save, a draft
+ * write — takes a machine-dependent number of ticks, so tests wait for its outcome, never for a
+ * fixed number of ticks.
+ */
+export async function eventually(check: () => void | Promise<void>): Promise<void> {
+  await waitFor(check, { timeout: 5000 })
 }
 
 /** Let pending store writes and effects finish. */

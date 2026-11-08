@@ -10,6 +10,7 @@ import { listTimings } from '../store/timings.ts'
 import type { RecordTypes } from '../store/types.ts'
 import type { SyncBatch } from '../sync/batch.ts'
 import {
+  eventually,
   harness,
   newHand,
   renderApp,
@@ -99,9 +100,10 @@ describe('drafts', () => {
     tap(h, link)
     // Back at the actions, with UTG's raise in: seat 2 is to act.
     expect(await screen.findByLabelText('Hand so far')).toHaveTextContent('Seat 2 · UTG+1')
-    await settle()
-    const [timing] = await listTimings(h.db)
-    expect(timing).toMatchObject({ interrupted: true, savedAt: null })
+    await eventually(async () => {
+      const [timing] = await listTimings(h.db)
+      expect(timing).toMatchObject({ interrupted: true, savedAt: null })
+    })
   })
 
   it('discards a draft', async () => {
@@ -204,8 +206,9 @@ describe('sync', () => {
     const sessionId = await seedSession(h)
     renderApp(h, `/capture/session/${sessionId}`)
     await quickHand(h)
-    await settle()
-    expect(h.server.stored.hand.size).toBe(1)
+    await eventually(() => {
+      expect(h.server.stored.hand.size).toBe(1)
+    })
 
     h.server.down = true
     await quickHand(h, '8c 3d')
@@ -239,10 +242,11 @@ describe('sync', () => {
     // Change why it was logged and save again: revision 2 goes out and is accepted.
     tapButton(h, 'Routine', 'Why logged')
     await save(h)
-    await settle()
-    const entry = (await listEntries(h.db, 'hand'))[0]
-    expect(entry?.record.revision).toBe(2)
-    expect(entry?.state.status).toBe('synced')
+    await eventually(async () => {
+      const entry = (await listEntries(h.db, 'hand'))[0]
+      expect(entry?.record.revision).toBe(2)
+      expect(entry?.state.status).toBe('synced')
+    })
   })
 
   it('keeps the phone version of a hand in conflict', async () => {
@@ -250,9 +254,12 @@ describe('sync', () => {
     const sessionId = await seedSession(h)
     renderApp(h, `/capture/session/${sessionId}`)
     await quickHand(h)
-    await settle()
     const [hand] = await hands(h)
     if (hand === undefined) throw new Error('no hand')
+    // The first sync must be over before the server's copy is replaced.
+    await eventually(async () => {
+      expect((await getEntry(h.db, hand.id))?.state.status).toBe('synced')
+    })
     // Another device stored other content at the same revision; the phone edits and resends.
     h.server.stored.hand.set(hand.id, { ...hand, revision: 2, record_reason: 'routine' })
     tap(h, await screen.findByRole('link', { name: /#1/ }))
@@ -260,15 +267,17 @@ describe('sync', () => {
     await screen.findByRole('group', { name: 'Why logged' })
     tapButton(h, 'Random sample', 'Why logged')
     await save(h)
-    await settle()
-    expect((await getEntry(h.db, hand.id))?.state.status).toBe('conflict')
+    await eventually(async () => {
+      expect((await getEntry(h.db, hand.id))?.state.status).toBe('conflict')
+    })
 
     renderApp(h, '/capture/attention')
     tap(h, await screen.findByRole('button', { name: 'Keep mine' }))
-    await settle()
-    const entry = await getEntry(h.db, hand.id)
-    expect(entry?.state.status).toBe('synced')
-    expect(entry?.record.revision).toBe(3)
+    await eventually(async () => {
+      const entry = await getEntry(h.db, hand.id)
+      expect(entry?.state.status).toBe('synced')
+      expect(entry?.record.revision).toBe(3)
+    })
     expect(h.server.stored.hand.get(hand.id)).toMatchObject({
       revision: 3,
       record_reason: 'random_sample',
@@ -310,7 +319,8 @@ describe('known players and the next hand', () => {
     expect(hand?.seats.find((s) => s.seat === 3)?.player_id).toBe(players[0]?.id)
 
     await newHand(h)
-    expect(screen.getByRole('button', { name: /^Seat 3,.*Grinder/ })).toBeInTheDocument()
+    // The player names load apart from the hand, so they may show a moment later.
+    expect(await screen.findByRole('button', { name: /^Seat 3,.*Grinder/ })).toBeInTheDocument()
     expect(
       within(screen.getByRole('group', { name: "Hero's stack" })).getByLabelText(
         "Hero's stack amount",
@@ -351,7 +361,9 @@ describe('entry times and export', () => {
     })
     renderApp(h, '/capture')
     tap(h, await screen.findByRole('button', { name: 'Export unsynced records' }))
-    await settle()
+    await eventually(() => {
+      expect(blobs).toHaveLength(1)
+    })
     vi.unstubAllGlobals()
     const [blob] = blobs
     if (blob === undefined) throw new Error('nothing exported')
