@@ -6,8 +6,9 @@ thresholds that cannot be chosen honestly before a first measurement are marked 
 first measurement]** and are recorded in `DECISIONS.md` when fixed.
 
 Current status: **M0 complete** (skeleton and CI; [`plans/M0.md`](plans/M0.md)). **M1 complete**
-(CFR on Kuhn and Leduc; acceptance evidence in [`plans/M1.md`](plans/M1.md) §5). Next: M3a
-(plan accepted: [`plans/M3a.md`](plans/M3a.md)).
+(CFR on Kuhn and Leduc; acceptance evidence in [`plans/M1.md`](plans/M1.md) §5). **M3a complete**
+(hand record, storage, decision points, sync API; acceptance evidence in
+[`plans/M3a.md`](plans/M3a.md) §5). Next: M4a (phone capture; plan not yet written).
 
 ## Order
 
@@ -109,10 +110,11 @@ Deliverables
 - `domain`: canonical hand record (versioned JSON, Pydantic; JSON Schema exported for the web
   app), validation, incomplete-information flags, `record_reason`.
 - `storage`: SQLAlchemy models and Alembic migrations for venues, sessions, players, hands,
-  hand_players, actions, decision_points (`ARCHITECTURE.md` §7).
+  hand_seats (planned as hand_players), actions, decision_points (`ARCHITECTURE.md` §7).
 - Decision-point extraction and situation classification (no evaluation yet: every decision is
   stored as unscored, with the reason "engine not available").
-- API: sessions, hands, `POST /sync` (idempotent by client-generated UUID).
+- API: sessions, hands, `POST /sync` (idempotent by client-generated UUID). As built: `POST /sync`
+  is the only write path, with `GET` reads (ADR-0026).
 
 Acceptance criteria
 1. Hand validation: property tests for chip conservation and card uniqueness; invalid records are

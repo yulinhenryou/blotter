@@ -38,9 +38,10 @@ The first real user is **Henry**, a live and online No-Limit Hold'em player (abo
 experience; has read *The Theory of Poker* and *Modern Poker Theory*), who will use it to review
 their own hands. Henry knows Python, Java and JavaScript well and is **new to Rust**.
 
-**Current status:** M0 (skeleton and CI) and M1 (CFR on Kuhn and Leduc) complete — see
-`docs/plans/M0.md` and `docs/plans/M1.md` (acceptance evidence in §5). Next milestone: M3a (hand
-record format and storage; `docs/ROADMAP.md`). Setup and commands: `docs/DEVELOPMENT.md`.
+**Current status:** M0 (skeleton and CI), M1 (CFR on Kuhn and Leduc) and M3a (hand record,
+storage, decision points, sync API) complete — see `docs/plans/M0.md`, `docs/plans/M1.md` and
+`docs/plans/M3a.md` (acceptance evidence in §5). Next milestone: M4a (phone capture;
+`docs/ROADMAP.md`). Setup and commands: `docs/DEVELOPMENT.md`.
 
 ## 2. Core principles (non-negotiable)
 
@@ -149,8 +150,8 @@ Rationale and alternatives: `docs/ARCHITECTURE.md` and `docs/DECISIONS.md`.
 │   └── bindings/              # PyO3 layer only; no logic
 ├── python/
 │   ├── pyproject.toml         # maturin build backend, uv-managed
-│   ├── src/review/            # engine wrapper, api; later ledger, attribution, leaks,
-│   │                          # calibration, opponents, bankroll, storage
+│   ├── src/review/            # engine wrapper, domain, ledger, storage, api; later
+│   │                          # attribution, leaks, calibration, opponents, bankroll
 │   └── tests/
 ├── web/                       # Vite + React + TS app; openapi.json = API contract
 ├── scripts/                   # repo tooling (name check, OpenAPI export)

@@ -1,7 +1,7 @@
 # M3a plan — Hand record format and storage (Python, no solver)
 
-Status: **accepted (2026-11-07)**; D1–D5 decided as recommended (§0.1). Acceptance criteria:
-`ROADMAP.md` → M3a. Progress: Tasks 1–5 merged; Task 6 in review.
+Status: **complete (2026-11-08)**; plan accepted 2026-11-07, D1–D5 decided as recommended
+(§0.1). Acceptance criteria: `ROADMAP.md` → M3a; evidence in §5.
 
 M3a gives captured hands a durable, validated home that the phone (M4a) can sync into. Nothing in
 it calls the engine: every decision point is stored unscored, with the reason "engine not
@@ -347,6 +347,33 @@ later milestone, `source = "import"` is reserved); authentication and deployment
 
 ---
 
-## 5. Acceptance evidence
+## 5. Acceptance evidence (2026-11-08)
 
-Not yet: filled in when M3a closes (Task 7).
+Criteria from `ROADMAP.md` → M3a. Tests are in `python/tests`; they run in CI on every pull
+request and on `main`, the storage and API tests on SQLite and on PostgreSQL 18 (a service
+container; `REQUIRE_POSTGRES=1` turns a missing database into a failure, ADR-0025). All four
+workflows passed on `main` at merge commit `ba39804` (Tasks 1–6); the Python job ran 152 tests,
+none skipped.
+
+| AC | Result | Evidence |
+|---|---|---|
+| 1. Hand validation: chip conservation and card uniqueness as property tests; invalid records rejected with field-level errors; incomplete records accepted and flagged | **Pass** | `test_domain_properties.py`, on hands from the independent dealer (`tests/dealer.py`): `test_dealt_hands_are_valid_and_add_up` (pots, rake and hero's net against the dealer's own accounting), `test_dealt_hands_use_every_card_once`; rejections with the exact field path: `test_a_card_used_twice_is_rejected`, `test_one_chip_too_many_is_rejected`, `test_an_action_out_of_turn_is_rejected`, `test_an_action_after_folding_is_rejected`, `test_a_raise_below_the_minimum_is_rejected`; `test_incomplete_hands_are_accepted_and_flagged`. Anchors: the worked examples of `MATH.md` §1.5 as exact fixtures (`test_domain_examples.py`). Eight injected faults in `domain` caught, one after a test was added (Task 2) |
+| 2. Migrations apply cleanly from empty on SQLite and PostgreSQL in CI; a downgrade/upgrade cycle works | **Pass** | `test_storage_migrations.py`, each on both backends: `test_upgrade_from_empty_creates_every_table`, `test_downgrade_to_base_and_upgrade_again`, `test_migrations_go_up_and_down_one_step_at_a_time` (0001 ↔ 0002), `test_models_and_migrations_agree` (`alembic check`) |
+| 3. Syncing the same batch twice creates no duplicates | **Pass** | `test_api_sync.py::test_the_same_batch_twice_creates_no_duplicates`, a property test on both backends: random batches of dealt hands with their venue, sessions and players; the second response reports every item `unchanged` and no row count changes. Per-item conflicts, field-level errors and partial application: the other tests of that file (ADR-0026) |
+| 4. Hand record → rows → hand record without loss | **Pass** | `test_storage_repository.py::test_record_rows_record_is_the_identity`, a property test on both backends: dealt hands, 70% made incomplete, random revisions and `played_at` offsets; the decision points round-trip too. Thirteen injected faults in `repository.py` caught (Task 4) |
+| 5. Every hero decision in a stored hand produces a decision point; none is dropped | **Pass** | `test_ledger_decisions.py::test_one_decision_point_per_hero_action` (one point per hero action other than a post, each pointing at it); stored with the hand and read back in the AC4 test; every point stored unscored with reason `engine_not_available`. Situation keys: hand-classified fixtures and bucket boundaries (`test_ledger_situations.py`); fifteen injected faults in `ledger` caught, one after two fixtures were added (Task 5) |
+
+Deviations and additions, all recorded:
+- `hand_players` became `hand_seats`, which also holds `won_chips`, so there is no results table;
+  `decision_points` came in its own migration `0002` (Tasks 3 and 5).
+- The API has one write path, `POST /sync`, and `GET` reads, instead of per-resource `POST` /
+  `PATCH` (D3, ADR-0026).
+- Record v1 adds `dealt_in_seats` and `showed` to the sketch of §1.2; three conventions the TDA
+  rules do not cover are house rules confirmed by Henry (ADR-0024).
+- pg8000 reports most constraint violations as `ProgrammingError`; the engine maps them to
+  `IntegrityError` (`ARCHITECTURE.md` §7.1). Found by the first PostgreSQL run in CI.
+- Situation classes: accepted as drafted (`MATH.md` §5.1, classifier version 1).
+
+Not yet measured: the time a large sync batch takes (one transaction per item; fine at live
+volumes by expectation, not by measurement). PostgreSQL runs only in CI, not on Henry's machine
+(D2).
