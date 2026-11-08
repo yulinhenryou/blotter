@@ -1438,6 +1438,29 @@
         "summary": "Health"
       }
     },
+    "/api/v1/players": {
+      "get": {
+        "description": "List every player, hero first, then by display name.",
+        "operationId": "get_players_api_v1_players_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlayerRecord"
+                  },
+                  "title": "Response Get Players Api V1 Players Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Players"
+      }
+    },
     "/api/v1/sessions": {
       "get": {
         "description": "List every session, the most recent start first.",
@@ -1590,6 +1613,29 @@
           }
         },
         "summary": "Sync"
+      }
+    },
+    "/api/v1/venues": {
+      "get": {
+        "description": "List every venue, by name.",
+        "operationId": "get_venues_api_v1_venues_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VenueRecord"
+                  },
+                  "title": "Response Get Venues Api V1 Venues Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Venues"
       }
     }
   }

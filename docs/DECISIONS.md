@@ -684,3 +684,35 @@ for no gain at this size. Loading the font from a CDN: it would not render offli
 (12 entries, 367 KiB in the build of 2026-11-08), so the app opens with no network. The Vite dev
 server does not register the service worker; offline behavior is checked on the production build
 (served by FastAPI, see `DEVELOPMENT.md`).
+
+## ADR-0032: Web dependencies for the offline store: `idb` and `fake-indexeddb`
+
+- Status: Accepted (follows ADR-0007 and the M4a plan, §0.2 and Task 5, accepted by Henry on
+  2026-11-08)
+- Date: 2026-11-08
+
+**Context.** The phone keeps drafts, records waiting to sync, entry timings and the random-sample
+log in IndexedDB (M4a plan §1.4). IndexedDB's own API is event-based and untyped; jsdom, which runs
+the component tests, has no IndexedDB. Licenses must be compatible with MIT OR Apache-2.0
+(`CLAUDE.md` §2.6).
+
+**Decision.** Versions and licenses as installed on 2026-11-08 (from the npm registry):
+
+| Package | Version | License | Kind |
+|---|---|---|---|
+| `idb` | 8.0.4 | ISC | runtime: a promise wrapper over IndexedDB, typed by a schema interface; no dependencies |
+| `fake-indexeddb` | 6.2.7 | Apache-2.0 | dev: an in-memory IndexedDB for Vitest; no dependencies |
+
+Neither adds a transitive package. `vite-plugin-pwa`'s Workbox keeps its own `idb` 7.1.1 nested
+under it (build time only). `npm audit` is unchanged (the 15 advisories accepted in ADR-0031);
+`npm audit --omit=dev` reports 0.
+
+**Alternatives.** Dexie (Apache-2.0): queries and live queries the store does not need, at several
+times the size. IndexedDB without a wrapper: more code around events and transactions for no gain.
+`localStorage`: synchronous, strings only, and no transactions, so a save and a sync could
+interleave.
+
+**Consequences.** The store's tests run on `fake-indexeddb`, which implements the IndexedDB
+specification in JavaScript; Safari's own IndexedDB is exercised by the end-to-end tests (WebKit,
+M4a Task 7) and on Henry's iPhone (Task 8).
+

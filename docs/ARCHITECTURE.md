@@ -248,6 +248,7 @@ are a sketch.
 |---|---|
 | `GET /health` *(M0)* | Liveness, engine version |
 | `POST /sync` *(M3a)* | The only write path: a batch of venues, players, sessions and hands, saved item by item by revision (ADR-0026) |
+| `GET /venues`, `GET /players` *(M4a)* | Pick lists, so a reinstalled phone gets its venues and known players back |
 | `GET /sessions`, `GET /sessions/{id}`, `GET /sessions/{id}/hands` *(M3a)* | Sessions, newest first; a session's hands in played order |
 | `GET /hands/{id}` *(M3a)* | A hand's canonical record with its decision points |
 | `POST /hands/{id}/evaluate` → `GET /jobs/{id}` | Start / poll solver-backed evaluation |
@@ -286,6 +287,17 @@ deliberately left out until measurement says otherwise.
   raises its revision, so resending is always safe (ADR-0026); sync runs when the app opens, comes
   back online or saves a hand, since Safari has no background sync; unsynced records can be
   exported as a JSON file in the shape of a sync batch.
+- **Offline store and sync** (`web/src/store/`, `web/src/sync/`; ADR-0032): one IndexedDB
+  database with the object stores `records`, `drafts`, `timings`, `samples` and `settings`. Each
+  record is kept with the highest revision sent, the revision the server last reported holding,
+  and its sync state. A sync run marks what it sends as sent *before* the request goes out, then
+  applies each item's outcome to the record as it is when the answer arrives (an edit made
+  meanwhile stays pending). A record waits, instead of being sent, while it refers to a record on
+  the phone that the server does not hold (a hand whose session the server refused goes out with
+  the corrected session, with no edit of its own). After the batch, `GET /venues` and
+  `GET /players` fill in pick lists without overwriting local edits. Runs never overlap; a save
+  during a run is sent by one follow-up run. The decisions are pure functions
+  (`sync/batch.ts`); `sync/sync.ts` wraps them in IndexedDB transactions and HTTP calls.
 - **Rules on the phone** (ADR-0028): the betting rules of `MATH.md` §1.5 are implemented a second
   time in TypeScript (`web/src/rules/`) so the entry screen offers only legal actions offline.
   Pure functions over an immutable state: `startHand` posts the forced bets; `toAct`,
