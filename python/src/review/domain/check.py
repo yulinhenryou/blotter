@@ -5,6 +5,10 @@
 §7.3: every seat, forced bet and fold explicit, derived fields filled) or the issues that make
 the record invalid, each with the path of the offending field.
 
+A record with ``ends_at_hero_fold`` (version 2, ADR-0030) is replayed up to hero's fold and no
+further: what happened after it is not recorded, so there are no results to check, no pots and no
+rake (``docs/MATH.md`` §1.5, "Hands that end at hero's fold").
+
 Paths refer to the record as it was given, so ``("actions", 7, "amount_to_chips")`` is the
 eighth action the client sent, even if canonicalization inserts folds before it.
 """
@@ -17,6 +21,7 @@ from typing import Never
 from review.domain.pots import Pot, first_infeasible_prefix, return_uncalled, side_pots
 from review.domain.record import (
     POSTS,
+    SCHEMA_VERSION,
     STREETS,
     Action,
     ActionKind,
@@ -165,9 +170,26 @@ def _structure(r: HandRecord) -> list[Issue]:
         if result.seat in seen:
             add(("results", i, "seat"), "duplicate_seat", f"seat {result.seat} appears twice")
         seen.add(result.seat)
-    if not r.results:
+    if r.ends_at_hero_fold:
+        _ends_at_hero_fold(r, add)
+    elif not r.results:
         add(("results",), "no_results", "every hand has a winner")
     return issues
+
+
+def _ends_at_hero_fold(r: HandRecord, add: _Add) -> None:
+    if r.schema_version < 2:
+        add(("ends_at_hero_fold",), "not_in_version", "ends_at_hero_fold needs schema_version 2")
+    if r.results:
+        add(("results", 0), "results_after_hero_fold", "the record stops at hero's fold")
+    fold = next(
+        (i for i, a in enumerate(r.actions) if a.seat == r.hero_seat and a.kind is ActionKind.FOLD),
+        None,
+    )
+    if fold is None:
+        add(("ends_at_hero_fold",), "hero_did_not_fold", "the record must end with hero's fold")
+    elif fold < len(r.actions) - 1:
+        add(("actions", fold + 1), "action_after_hero_fold", "the record stops at hero's fold")
 
 
 def _cards(r: HandRecord, add: _Add) -> None:
@@ -288,7 +310,8 @@ def _replay(r: HandRecord) -> CheckResult:
             _stop(("actions", i, "seat"), "out_of_turn", f"it is seat {seat}'s turn")
         out.append(_play(i, action, betting))
 
-    while not betting.hand_over():
+    # A record that ends at hero's fold stops here: the rest of the hand is not recorded.
+    while not r.ends_at_hero_fold and not betting.hand_over():
         seat = betting.next_to_act()
         if seat is None:
             if betting.street is Street.RIVER:
@@ -348,7 +371,9 @@ def _play(i: int, action: Action, betting: Betting) -> Action:
 
 
 def _check_board(r: HandRecord, betting: Betting) -> None:
-    shown_down = len(betting.non_folded()) >= 2
+    # Two or more seats left at the end means the board was run out to the river; a record that
+    # ends at hero's fold has only the streets reached by then.
+    shown_down = not r.ends_at_hero_fold and len(betting.non_folded()) >= 2
     reached = set(betting.reached) | (set(STREETS) if shown_down else set())
     cards = {Street.FLOP: r.board.flop, Street.TURN: r.board.turn, Street.RIVER: r.board.river}
     for street, card in cards.items():
@@ -360,9 +385,14 @@ def _check_board(r: HandRecord, betting: Betting) -> None:
 
 def _settle(r: HandRecord, betting: Betting, actions: list[Action]) -> CheckResult:
     seats = betting.seats
+    antes = {s: state.ante for s, state in seats.items()}
+    if r.ends_at_hero_fold:
+        # Hero's chips are never uncalled (MATH.md §1.5): hero's net is minus hero's total. The
+        # pots, the other results and the rake depend on what happened afterwards: unknown.
+        hero = seats[r.hero_seat]
+        return _canonical(r, betting, actions, (), rake=None, hero_net=-(hero.ante + hero.live))
     folded = {s for s, state in seats.items() if state.folded}
     live, _, _ = return_uncalled({s: state.live for s, state in seats.items()})
-    antes = {s: state.ante for s, state in seats.items()}
     pots = side_pots(antes, live, folded)
     won = {res.seat: res.won_chips for res in r.results}
     for i, res in enumerate(r.results):
@@ -382,6 +412,21 @@ def _settle(r: HandRecord, betting: Betting, actions: list[Action]) -> CheckResu
             f"seats eligible only for pots 1..{j} win more than those pots hold",
         )
 
+    rake = sum(p.chips for p in pots) - sum(won.values())
+    hero_net = won.get(r.hero_seat, 0) - antes[r.hero_seat] - live[r.hero_seat]
+    return _canonical(r, betting, actions, tuple(pots), rake=rake, hero_net=hero_net)
+
+
+def _canonical(
+    r: HandRecord,
+    betting: Betting,
+    actions: list[Action],
+    pots: tuple[Pot, ...],
+    *,
+    rake: int | None,
+    hero_net: int,
+) -> CheckResult:
+    seats = betting.seats
     entries = {e.seat: e for e in r.seats}
     canonical_seats = []
     for s in sorted(r.dealt_in_seats):
@@ -391,8 +436,6 @@ def _settle(r: HandRecord, betting: Betting, actions: list[Action]) -> CheckResu
             entry = entry.model_copy(update={"starting_stack_chips": seats[s].ante + seats[s].live})
         canonical_seats.append(entry)
 
-    rake = sum(p.chips for p in pots) - sum(won.values())
-    hero_net = won.get(r.hero_seat, 0) - antes[r.hero_seat] - live[r.hero_seat]
     involved = {r.hero_seat} | {
         a.seat for a in actions if a.kind in (ActionKind.CALL, ActionKind.BET, ActionKind.RAISE)
     }
@@ -412,6 +455,7 @@ def _settle(r: HandRecord, betting: Betting, actions: list[Action]) -> CheckResu
     )
     canonical = r.model_copy(
         update={
+            "schema_version": SCHEMA_VERSION,
             "dealt_in_seats": tuple(sorted(r.dealt_in_seats)),
             "seats": tuple(canonical_seats),
             "actions": tuple(actions),
@@ -421,7 +465,7 @@ def _settle(r: HandRecord, betting: Betting, actions: list[Action]) -> CheckResu
             "hero_net_chips": hero_net,
         }
     )
-    return CheckResult(canonical, (), tuple(pots))
+    return CheckResult(canonical, (), pots)
 
 
 def _stop(path: Path, code: str, message: str) -> Never:

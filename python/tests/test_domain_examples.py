@@ -205,6 +205,59 @@ def test_example_4_big_blind_ante_goes_into_the_main_pot() -> None:
     assert [p.chips for p in result.pots] == [205]
 
 
+# --- Hands that end at hero's fold (record version 2, MATH.md §1.5) ---------------------------
+
+
+def test_example_4_cut_at_hero_fold_keeps_hero_net_and_drops_the_rake() -> None:
+    cut = example_4(None, 203).model_copy(update={"results": (), "ends_at_hero_fold": True})
+    result = check(cut)
+    assert result.ok, result.issues
+    assert result.record is not None
+    assert result.record.hero_net_chips == -100  # as in the complete hand
+    assert result.record.rake_chips is None
+    assert result.pots == ()
+
+
+def test_section_5_1_example_cut_at_a_flop_fold() -> None:
+    # MATH.md §5.1 worked example (live 1/3, nine dealt in, hero on the button), but hero folds
+    # to UTG's flop bet and stops recording. Seats: UTG 1 ... CO 6, BTN 7 (hero), SB 8, BB 9.
+    cut = hand(
+        stakes=Stakes(small_blind_chips=1, big_blind_chips=3),
+        table_size=9,
+        dealt_in_seats=tuple(range(1, 10)),
+        button_seat=7,
+        hero_seat=7,
+        seats=(seat(1, 300), seat(7, 300, ("Qh", "Jh")), seat(9, 300)),
+        board=Board(flop=("Ks", "7d", "2c")),
+        actions=(
+            act(P, 1, A.RAISE, 15),
+            act(P, 7, A.CALL, 15),
+            act(P, 8, A.FOLD),
+            act(P, 9, A.CALL, 15),
+            act(F, 9, A.CHECK),
+            act(F, 1, A.BET, 30),
+            act(F, 7, A.FOLD),
+        ),
+        ends_at_hero_fold=True,
+    )
+    result = check(cut)
+    assert result.ok, result.issues
+    record = result.record
+    assert record is not None
+    assert record.hero_net_chips == -15
+    assert record.rake_chips is None
+    assert record.results == ()
+    # Posts and the folds of seats 2-6 are made explicit; nothing after hero's fold is added.
+    assert [(a.seat, a.kind) for a in record.actions[-3:]] == [
+        (9, A.CHECK),
+        (1, A.BET),
+        (7, A.FOLD),
+    ]
+    assert len(record.actions) == 2 + 5 + 4 + 3  # posts, implicit folds, preflop, flop
+    assert record.completeness is not None
+    assert record.completeness.villain_cards_unknown  # UTG and BB are still in, cards unseen
+
+
 # --- Smaller rule cases -----------------------------------------------------------------------
 
 

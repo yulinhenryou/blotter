@@ -10,14 +10,16 @@ rather than the checker with itself. Its style differs on purpose:
   all-ins adding up to one), instead of the single inequality derived in ``MATH.md``;
 - pots are peeled off the smallest all-in, instead of being built from sorted levels.
 
-The dealer only produces records that are complete and fully explicit (every forced bet, fold,
-seat, stack and card), plus notes the tests need to mutate them.
+The dealer produces records that are fully explicit (every forced bet, fold, seat, stack and
+card), plus notes the tests need to mutate them. They are complete, except that
+:func:`end_at_hero_fold` cuts a hand in which hero folded at hero's fold (record version 2,
+ADR-0030), the way a player who stops watching would record it.
 """
 
 import random
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from review.domain.record import (
     Action,
@@ -55,7 +57,7 @@ def uuid7(rng: random.Random) -> uuid.UUID:
 class Notes:
     """What the dealer knows about the hand it dealt."""
 
-    rake: int
+    rake: int | None  # None when the record ends at hero's fold
     hero_net: int
     pot_chips: int = 0  # everything committed, minus the uncalled bet
     min_raise_to: dict[int, int] = field(default_factory=dict)  # action index -> minimum
@@ -78,8 +80,11 @@ class _Seat:
     folded_facing_bet: bool = False
 
 
-def deal(rng: random.Random) -> tuple[HandRecord, Notes]:
-    """Deal one random legal hand and return it with the dealer's notes."""
+def deal(rng: random.Random, *, hero_folds: bool = False) -> tuple[HandRecord, Notes]:
+    """Deal one random legal hand and return it with the dealer's notes.
+
+    With ``hero_folds``, hero is one of the seats that folded (dealing again until one did).
+    """
     n = rng.randint(2, 9)
     table_size = rng.randint(n, 10)
     dealt = sorted(rng.sample(range(1, table_size + 1), n))
@@ -162,7 +167,10 @@ def deal(rng: random.Random) -> tuple[HandRecord, Notes]:
     )
 
     won, rake = _award(rng, seats)
-    hero = rng.choice(dealt)
+    folders = [s for s in dealt if seats[s].folded]
+    if hero_folds and not folders:
+        return deal(rng, hero_folds=True)
+    hero = rng.choice(folders if hero_folds else dealt)
     entries = tuple(
         SeatEntry(
             seat=s,
@@ -332,3 +340,44 @@ def _award(rng: random.Random, seats: dict[int, _Seat]) -> tuple[dict[int, int],
     # MATH.md §1.5, lemma: once the uncalled bet is back, no folded seat has chips left over.
     assert not any(remaining.values()), remaining
     return won, rake
+
+
+def end_at_hero_fold(hand: HandRecord, notes: Notes) -> tuple[HandRecord, Notes]:
+    """Cut a complete hand in which hero folded at hero's fold (record version 2).
+
+    Kept: the actions up to and including hero's fold, the board cards dealt by then, every seat
+    entry (villain cards may still be known). Dropped: later actions, later board cards, the
+    results. Hero's net is the complete hand's: a folded seat wins nothing and gets nothing back.
+    """
+    cut = next(
+        i
+        for i, a in enumerate(hand.actions)
+        if a.seat == hand.hero_seat and a.kind is ActionKind.FOLD
+    )
+    actions = hand.actions[: cut + 1]
+    street = STREETS.index(actions[-1].street)
+    board = Board(
+        flop=hand.board.flop if street >= 1 else None,
+        turn=hand.board.turn if street >= 2 else None,
+        river=hand.board.river if street >= 3 else None,
+    )
+    folded = {a.seat for a in actions if a.kind is ActionKind.FOLD}
+    record = hand.model_copy(
+        update={"actions": actions, "board": board, "results": (), "ends_at_hero_fold": True}
+    )
+    return record, replace(
+        notes,
+        rake=None,
+        pot_chips=0,
+        folded=folded,
+        implicit_folders=notes.implicit_folders & folded,
+        min_raise_to={i: m for i, m in notes.min_raise_to.items() if i <= cut},
+        bet_before={i: b for i, b in notes.bet_before.items() if i <= cut},
+    )
+
+
+def deal_any(rng: random.Random) -> tuple[HandRecord, Notes]:
+    """A complete hand, or (three times in ten) one that ends at hero's fold."""
+    if rng.random() < 0.3:
+        return end_at_hero_fold(*deal(rng, hero_folds=True))
+    return deal(rng)

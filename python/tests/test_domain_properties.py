@@ -1,19 +1,24 @@
 """Property tests of review.domain against the independent dealer in tests/dealer.py.
 
 M3a acceptance criterion 1: legal hands pass and conserve chips; impossible hands are rejected
-with field-level errors; incomplete hands are accepted and flagged.
+with field-level errors; incomplete hands are accepted and flagged. Record version 2 (ADR-0030):
+hands that end at hero's fold pass with hero's net and no rake, and the ways such a record can be
+wrong are rejected with field-level errors.
 """
 
 import random
 
-from dealer import Notes, deal
+from dealer import DECK, Notes, deal, deal_any, end_at_hero_fold
 from hypothesis import given
 from hypothesis import strategies as st
 
 from review.domain import HandRecord, check
 from review.domain.record import POSTS, ActionKind, SeatEntry, Street
 
-hands = st.randoms(use_true_random=False).map(deal)
+randoms = st.randoms(use_true_random=False)
+hands = randoms.map(deal)  # complete
+cut_hands = randoms.map(lambda rng: end_at_hero_fold(*deal(rng, hero_folds=True)))
+any_hands = randoms.map(deal_any)  # either
 
 
 def canonical(hand: HandRecord) -> HandRecord:
@@ -42,7 +47,25 @@ def test_dealt_hands_are_valid_and_add_up(dealt: tuple[HandRecord, Notes]) -> No
     assert not any(record.completeness.model_dump().values())
 
 
-@given(hands)
+@given(cut_hands)
+def test_hands_that_end_at_hero_fold_are_valid(dealt: tuple[HandRecord, Notes]) -> None:
+    hand, notes = dealt
+    result = check(hand)
+    assert result.ok, result.issues
+    record = result.record
+    assert record is not None
+    derived = {"completeness": None, "rake_chips": None, "hero_net_chips": None}
+    assert record.model_copy(update=derived) == hand
+    # Hero's net from the dealer's accounting of the whole hand; nothing else is known.
+    assert record.hero_net_chips == notes.hero_net
+    assert record.rake_chips is None
+    assert record.results == ()
+    assert result.pots == ()
+    assert record.completeness is not None
+    assert not any(record.completeness.model_dump().values())
+
+
+@given(any_hands)
 def test_dealt_hands_use_every_card_once(dealt: tuple[HandRecord, Notes]) -> None:
     hand, _ = dealt
     cards: list[str | None] = [c for e in hand.seats for c in e.hole_cards or ()]
@@ -51,13 +74,13 @@ def test_dealt_hands_use_every_card_once(dealt: tuple[HandRecord, Notes]) -> Non
     assert len(known) == len(set(known))
 
 
-@given(hands)
+@given(any_hands)
 def test_canonical_form_is_a_fixed_point(dealt: tuple[HandRecord, Notes]) -> None:
     once = canonical(dealt[0])
     assert canonical(once) == once
 
 
-@given(hands)
+@given(any_hands)
 def test_omitted_posts_and_folds_give_the_same_canonical_record(
     dealt: tuple[HandRecord, Notes],
 ) -> None:
@@ -75,7 +98,7 @@ def test_omitted_posts_and_folds_give_the_same_canonical_record(
     assert canonical(short) == expected
 
 
-@given(hands, st.randoms(use_true_random=False))
+@given(any_hands, randoms)
 def test_incomplete_hands_are_accepted_and_flagged(
     dealt: tuple[HandRecord, Notes], rng: random.Random
 ) -> None:
@@ -144,6 +167,7 @@ def test_a_card_used_twice_is_rejected(dealt: tuple[HandRecord, Notes]) -> None:
 def test_one_chip_too_many_is_rejected(dealt: tuple[HandRecord, Notes]) -> None:
     hand, notes = dealt
     first = hand.results[0]
+    assert notes.rake is not None  # a complete hand
     bigger = first.model_copy(update={"won_chips": first.won_chips + notes.rake + 1})
     result = check(hand.model_copy(update={"results": (bigger, *hand.results[1:])}))
     assert [i.code for i in result.issues] in (["results_exceed_pot"], ["results_infeasible"])
@@ -215,3 +239,74 @@ def test_a_raise_below_the_minimum_is_rejected(
     assert [(x.code, x.path) for x in result.issues] == [
         ("below_min_raise", ("actions", i, "amount_to_chips"))
     ]
+
+
+# --- Records that end at hero's fold, done wrong ------------------------------------------------
+
+
+@given(randoms)
+def test_an_action_after_hero_fold_is_rejected(rng: random.Random) -> None:
+    full, notes = deal(rng, hero_folds=True)
+    cut, _ = end_at_hero_fold(full, notes)
+    k = len(cut.actions)
+    if k == len(full.actions):
+        return  # hero's fold was the last action of the hand
+    longer = cut.model_copy(update={"actions": (*cut.actions, full.actions[k])})
+    assert [(x.code, x.path) for x in check(longer).issues] == [
+        ("action_after_hero_fold", ("actions", k))
+    ]
+
+
+@given(randoms)
+def test_results_with_a_hand_that_ends_at_hero_fold_are_rejected(rng: random.Random) -> None:
+    full, notes = deal(rng, hero_folds=True)
+    cut, _ = end_at_hero_fold(full, notes)
+    with_results = cut.model_copy(update={"results": full.results})
+    assert [(x.code, x.path) for x in check(with_results).issues] == [
+        ("results_after_hero_fold", ("results", 0))
+    ]
+
+
+@given(cut_hands)
+def test_a_board_card_after_hero_fold_is_rejected(dealt: tuple[HandRecord, Notes]) -> None:
+    hand, _ = dealt
+    board = hand.board
+    used = {c for e in hand.seats for c in e.hole_cards or ()}
+    used |= {*(board.flop or ()), board.turn, board.river} - {None}
+    free = [c for c in DECK if c not in used]
+    if board.flop is None:
+        later, street = board.model_copy(update={"flop": (free[0], free[1], free[2])}), "flop"
+    elif board.turn is None:
+        later, street = board.model_copy(update={"turn": free[0]}), "turn"
+    elif board.river is None:
+        later, street = board.model_copy(update={"river": free[0]}), "river"
+    else:
+        return  # hero folded on the river
+    assert [(x.code, x.path) for x in check(hand.model_copy(update={"board": later})).issues] == [
+        ("board_card_not_reached", ("board", street))
+    ]
+
+
+@given(hands)
+def test_the_flag_needs_hero_to_have_folded(dealt: tuple[HandRecord, Notes]) -> None:
+    hand, _ = dealt
+    if any(a.seat == hand.hero_seat and a.kind is ActionKind.FOLD for a in hand.actions):
+        return
+    flagged = hand.model_copy(update={"ends_at_hero_fold": True, "results": ()})
+    assert [(x.code, x.path) for x in check(flagged).issues] == [
+        ("hero_did_not_fold", ("ends_at_hero_fold",))
+    ]
+
+
+@given(cut_hands)
+def test_the_flag_needs_version_2(dealt: tuple[HandRecord, Notes]) -> None:
+    hand, _ = dealt
+    assert [
+        (x.code, x.path) for x in check(hand.model_copy(update={"schema_version": 1})).issues
+    ] == [("not_in_version", ("ends_at_hero_fold",))]
+
+
+@given(hands)
+def test_a_version_1_record_becomes_version_2(dealt: tuple[HandRecord, Notes]) -> None:
+    hand, _ = dealt
+    assert canonical(hand.model_copy(update={"schema_version": 1})) == canonical(hand)

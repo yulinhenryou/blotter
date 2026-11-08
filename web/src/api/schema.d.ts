@@ -249,7 +249,8 @@ export interface components {
          * @description One hand, as captured or as stored.
          *
          *     The fields ``completeness``, ``rake_chips`` and ``hero_net_chips`` are derived: they are
-         *     ignored on input and filled in by :func:`review.domain.check.check`.
+         *     ignored on input and filled in by :func:`review.domain.check.check`. ``rake_chips`` stays
+         *     ``None`` for a hand that ends at hero's fold, where the rake is not known.
          */
         HandRecord: {
             /**
@@ -266,6 +267,11 @@ export interface components {
             completeness?: components["schemas"]["Completeness"] | null;
             /** Dealt In Seats */
             dealt_in_seats: number[];
+            /**
+             * Ends At Hero Fold
+             * @default false
+             */
+            ends_at_hero_fold: boolean;
             /** Hero Net Chips */
             hero_net_chips?: number | null;
             /** Hero Seat */
@@ -292,10 +298,10 @@ export interface components {
             revision: number;
             /**
              * Schema Version
-             * @default 1
-             * @constant
+             * @default 2
+             * @enum {integer}
              */
-            schema_version: 1;
+            schema_version: 1 | 2;
             /**
              * Seats
              * @default []

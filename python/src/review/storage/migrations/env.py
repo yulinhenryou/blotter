@@ -16,17 +16,20 @@ url = config.attributes.get("url") or database_url()
 def run_migrations_online() -> None:
     """Run the migrations in one transaction per migration on a live connection."""
     engine = make_engine(url)
-    with engine.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=Base.metadata,
-            # SQLite cannot alter most constraints in place; batch mode copies the table.
-            render_as_batch=connection.dialect.name == "sqlite",
-            compare_type=True,
-        )
-        with context.begin_transaction():
-            context.run_migrations()
-    engine.dispose()
+    try:
+        with engine.connect() as connection:
+            context.configure(
+                connection=connection,
+                target_metadata=Base.metadata,
+                # SQLite cannot alter most constraints in place; batch mode copies the table.
+                render_as_batch=connection.dialect.name == "sqlite",
+                compare_type=True,
+            )
+            with context.begin_transaction():
+                context.run_migrations()
+    finally:
+        # Also when a migration fails (e.g. a refused downgrade), so no connection is left open.
+        engine.dispose()
 
 
 if context.is_offline_mode():

@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
 import pytest
-from dealer import deal
+from dealer import deal, deal_any
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 from sqlalchemy import Engine, delete, func, select
@@ -64,7 +64,7 @@ played_at = st.none() | st.builds(
 def stored_records(draw: st.DrawFn) -> HandRecord:
     """A canonical record: a dealt hand, often made incomplete the way a live entry would be."""
     rng = draw(st.randoms(use_true_random=False))
-    hand, notes = deal(rng)
+    hand, notes = deal_any(rng)
     if rng.random() < 0.7:
         hand = _vague(hand, rng, notes.implicit_folders)
     hand = hand.model_copy(
@@ -160,6 +160,21 @@ def test_record_rows_record_is_the_identity(engine: Engine, record: HandRecord) 
         assert loaded.played_at.utcoffset() == timedelta(0)
     # The decision points are written with the hand and read back unchanged too.
     assert _load_points(engine, record) == decision_points(record)
+
+
+@shared_db
+@given(stored_records())
+def test_what_a_seat_won_is_null_only_when_unknown(engine: Engine, record: HandRecord) -> None:
+    # In a hand that ends at hero's fold hero won 0 and the others' winnings are unknown (NULL),
+    # not 0; in a complete hand every seat's winnings are known.
+    _fresh(engine, record)
+    _save(engine, record)
+    with OrmSession(engine) as db:
+        won = {seat: chips for seat, chips in db.execute(select(HandSeat.seat, HandSeat.won_chips))}
+    if record.ends_at_hero_fold:
+        assert won == {s: None for s in won} | {record.hero_seat: 0}
+    else:
+        assert None not in won.values()
 
 
 @shared_db
