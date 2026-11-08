@@ -1,23 +1,24 @@
 import { useEffect, useState } from 'react'
 
-import { fetchHealth } from './api/client.ts'
-import styles from './App.module.css'
+import { fetchHealth } from '../api/client.ts'
+import { ButtonLink } from '../design/Button.tsx'
+import styles from './Home.module.css'
 
-type EngineStatus =
+type ServerStatus =
   { kind: 'loading' } | { kind: 'ready'; version: string } | { kind: 'error'; message: string }
 
-export default function App() {
-  const [engine, setEngine] = useState<EngineStatus>({ kind: 'loading' })
+export function Home() {
+  const [server, setServer] = useState<ServerStatus>({ kind: 'loading' })
 
   useEffect(() => {
     const controller = new AbortController()
     fetchHealth(controller.signal)
       .then((health) => {
-        setEngine({ kind: 'ready', version: health.engine_version })
+        setServer({ kind: 'ready', version: health.engine_version })
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
-        setEngine({
+        setServer({
           kind: 'error',
           message: error instanceof Error ? error.message : String(error),
         })
@@ -28,18 +29,21 @@ export default function App() {
   }, [])
 
   return (
-    <main className={styles.page}>
+    <>
       <h1 className={styles.title}>{__APP_NAME__}</h1>
       <p className={styles.tagline}>{__APP_TAGLINE__}</p>
+      <ButtonLink to="/capture" variant="primary">
+        Capture
+      </ButtonLink>
       <dl className={styles.status}>
-        <dt>Engine</dt>
+        <dt>Server</dt>
         <dd className="numeric" aria-live="polite">
-          {engine.kind === 'loading' && 'Connecting…'}
-          {engine.kind === 'ready' && engine.version}
-          {engine.kind === 'error' && `Unavailable (${engine.message})`}
+          {server.kind === 'loading' && 'Connecting…'}
+          {server.kind === 'ready' && `Connected · engine ${server.version}`}
+          {server.kind === 'error' && `Not reachable (${server.message})`}
         </dd>
       </dl>
       <p className={styles.note}>Early development. For post-game review only.</p>
-    </main>
+    </>
   )
 }

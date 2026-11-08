@@ -4,14 +4,29 @@
     {
       "name": "api",
       "runtimeExecutable": "zsh",
-      "runtimeArgs": ["-lc", "cd python && uv run uvicorn --factory review.api.app:create_app --port 8000"],
+      "runtimeArgs": [
+        "-lc",
+        "cd python && uv run uvicorn --factory review.api.app:create_app --port 8000"
+      ],
       "port": 8000
     },
     {
       "name": "web",
       "runtimeExecutable": "zsh",
-      "runtimeArgs": ["-lc", "cd web && npm run dev -- --port 5173 --strictPort"],
+      "runtimeArgs": [
+        "-lc",
+        "cd web && npm run dev -- --port 5173 --strictPort"
+      ],
       "port": 5173
+    },
+    {
+      "name": "app",
+      "runtimeExecutable": "zsh",
+      "runtimeArgs": [
+        "-lc",
+        "cd python && WEB_DIST_DIR=../web/dist uv run uvicorn --factory review.api.app:create_app --port 8010"
+      ],
+      "port": 8010
     }
   ]
 }

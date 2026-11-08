@@ -149,3 +149,32 @@ variable.
 
 Open <http://localhost:5173>. The Vite dev server proxies `/api` to port 8000. The page shows the
 engine version reported by the Rust crates through the API.
+
+### The production build (offline app)
+
+The Vite dev server does not register the service worker, so installability and offline behavior
+are checked on the production build, which FastAPI serves itself when `WEB_DIST_DIR` points at
+it (ADR-0031):
+
+```bash
+cd web && npm run build
+```
+
+```bash
+cd python && WEB_DIST_DIR=../web/dist DATABASE_URL=sqlite:///data/hands.db uv run uvicorn --factory review.api.app:create_app --port 8000
+```
+
+Open <http://localhost:8000>. Paths under `/api/` reach the API (an unknown one is a JSON 404);
+any other unknown path gets `index.html`, so a deep link such as `/capture` opens the app. Once
+the page has loaded, the service worker serves the app shell even with the server stopped. A
+service worker needs HTTPS or `localhost`; on the phone, HTTPS comes from `tailscale serve`
+(ADR-0027, M4a Task 8).
+
+### Icons
+
+The app icons in `web/public/` are drawn by a script (standard library only, no text in the
+image):
+
+```bash
+python3 scripts/make_icons.py
+```

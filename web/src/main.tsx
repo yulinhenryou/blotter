@@ -1,8 +1,11 @@
+import '@fontsource/libre-baskerville/400.css'
+import './index.css'
+
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { createBrowserRouter, RouterProvider } from 'react-router'
 
-import './index.css'
-import App from './App.tsx'
+import { routes } from './app/routes.tsx'
 
 const root = document.getElementById('root')
 if (!root) {
@@ -11,6 +14,6 @@ if (!root) {
 
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <RouterProvider router={createBrowserRouter(routes)} />
   </StrictMode>,
 )

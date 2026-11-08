@@ -1,16 +1,25 @@
 /*
- * Design tokens (first draft, M0). Restrained palette, generous spacing, serif headings,
- * tabular figures for every number. See docs/ARCHITECTURE.md §6.
+ * Design tokens (M4a). Restrained palette, generous spacing, serif headings, tabular figures for
+ * every number. See docs/ARCHITECTURE.md §6. Dark mode follows the system setting and has its own
+ * values, not an automatic inversion. contrast.test.ts checks every text color against every
+ * surface in both modes (WCAG AA).
  */
 
 :root {
-  /* Color: near-monochrome base, one accent, a colorblind-safe pair for EV gain/loss. */
+  /* Surfaces */
   --color-bg: #fbfaf7;
   --color-surface: #ffffff;
+  --color-surface-sunken: #f2f0eb;
+  --color-rule: #dedbd4;
+
+  /* Text */
   --color-text: #1c1c1e;
-  --color-text-muted: #6e6e73;
-  --color-rule: #e3e1dc;
-  --color-accent: #2f4a6d;
+  --color-text-muted: #5c5c61;
+  --color-accent: #2f4a6d; /* links, primary buttons, focus */
+  --color-on-accent: #ffffff; /* text on an accent background */
+  --color-danger: #a3361f; /* field errors */
+
+  /* Marks (graphics, not text): a colorblind-safe pair for EV gain/loss, used from M4b. */
   --color-ev-gain: #2b6cb0;
   --color-ev-loss: #c05621;
 
@@ -18,9 +27,11 @@
   --font-serif: Baskerville, 'Libre Baskerville', 'Baskerville Old Face', Georgia, serif;
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-md: 1rem;
   --text-lg: 1.25rem;
+  --text-xl: 1.75rem;
   --text-display: clamp(2.5rem, 6vw, 4rem);
 
   /* Space (4px base) */
@@ -33,6 +44,12 @@
   --space-12: 3rem;
   --space-16: 4rem;
 
+  /* Shape and touch */
+  --radius-1: 4px;
+  --radius-2: 8px;
+  --touch-target: 44px; /* minimum height and width of anything tapped */
+  --focus-ring: 0 0 0 3px var(--color-bg), 0 0 0 5px var(--color-accent);
+
   --measure: 36rem;
 
   color-scheme: light dark;
@@ -42,10 +59,15 @@
   :root {
     --color-bg: #121212;
     --color-surface: #1c1c1e;
+    --color-surface-sunken: #0b0b0c;
+    --color-rule: #38383b;
+
     --color-text: #f2f2f0;
-    --color-text-muted: #a1a1a6;
-    --color-rule: #333336;
+    --color-text-muted: #a8a8ad;
     --color-accent: #9db4d3;
+    --color-on-accent: #121212;
+    --color-danger: #f0937a;
+
     --color-ev-gain: #7fb2e5;
     --color-ev-loss: #f0a36b;
   }
