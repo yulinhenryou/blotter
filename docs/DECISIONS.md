@@ -633,3 +633,48 @@ that did not happen.
 **Consequences.** Hands logged this way have no rake and no other seats' results; statistics that
 need them use complete records only, and say so. Decision points and hero's net are unaffected.
 Showdown information about villains is lost unless Henry enters it as their hole cards.
+
+## ADR-0031: Web dependencies for M4a: router, PWA plugin, self-hosted font
+
+- Status: Accepted (follows ADR-0007, `ARCHITECTURE.md` §6 and the M4a plan, Task 3, accepted by
+  Henry on 2026-11-08)
+- Date: 2026-11-08
+
+**Context.** ADR-0007 and `ARCHITECTURE.md` §6 name React Router for routing, `vite-plugin-pwa`
+(Workbox) for installability and the offline app shell, and a self-hosted Libre Baskerville as
+the fallback heading font. M4a Task 3 adds them. Licenses must be compatible with MIT OR
+Apache-2.0 (`CLAUDE.md` §2.6).
+
+**Decision.** Versions and licenses as installed on 2026-11-08 (from each package's
+`package.json`):
+
+| Package | Version | License | Kind |
+|---|---|---|---|
+| `react-router` | 8.5.1 | MIT | runtime |
+| `@fontsource/libre-baskerville` | 5.3.0 | OFL-1.1 (the font files) | runtime; only weight 400 is imported |
+| `vite-plugin-pwa` | 2.0.0 | MIT | dev (build time); brings `workbox-build` 7.4.1 (MIT) and `workbox-window` 7.4.1 (MIT, bundled into the app) |
+
+The transitive packages added are under MIT, ISC, Apache-2.0, BSD-2/3-Clause or BlueOak-1.0.0
+(checked with each package's metadata on 2026-11-08); none is GPL, LGPL or AGPL. The OFL allows
+bundling and redistributing the font with the app; the font files are not sold on their own.
+
+`react-router` 8 is a single package (the separate `react-router-dom` is no longer needed). The
+service worker is generated (`generateSW`) and registered with `registerType: 'prompt'`: a new
+version waits until the user taps "Reload", so an update never reloads the page in the middle of
+a hand entry.
+
+**Known issue accepted.** `npm audit` now reports 15 advisories (2 low, 13 moderate). Besides the
+`minimatch` / `glob` advisories of the lint tooling already accepted in ADR-0018, the PWA plugin's
+build step brings `deepmerge` 4.3.1 (low; prototype pollution through `mergeObject`) via
+`workbox-build` → `@rollup/plugin-node-resolve`. All run only at build time on Henry's machine or
+in CI, on the project's own configuration; `npm audit --omit=dev` reports 0. Revisit when Workbox
+releases a fix.
+
+**Alternatives.** TanStack Router: typed routes, but ADR-0007 already chose React Router and the
+app has three routes. A hand-written service worker: more code to get caching and updates right,
+for no gain at this size. Loading the font from a CDN: it would not render offline.
+
+**Consequences.** The production build precaches the app shell, the font and the icons
+(12 entries, 367 KiB in the build of 2026-11-08), so the app opens with no network. The Vite dev
+server does not register the service worker; offline behavior is checked on the production build
+(served by FastAPI, see `DEVELOPMENT.md`).

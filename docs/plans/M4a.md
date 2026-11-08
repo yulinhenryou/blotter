@@ -234,6 +234,21 @@ Each task is one PR (D7).
 - FastAPI can serve the built web app (§1.1).
 - Tests: component tests for the shell; the contrast test; a build check that the manifest has the
   required fields.
+- As implemented: `react-router` 8.5.1, `vite-plugin-pwa` 2.0.0 and `@fontsource/libre-baskerville`
+  5.3.0 (ADR-0031). Routes `/`, `/capture` and a not-found page inside one shell
+  (`web/src/app/`); the shell shows "Offline" when the browser reports no network, and a banner
+  when a new version is ready ("Reload" / "Later"; the page never reloads by itself). Tokens: light
+  and dark palettes with their own values, type scale, spacing, radii, a 44 px touch target and a
+  focus ring; `Button` and `ButtonLink` base components. The manifest is built from
+  `project.json` (`web/manifest.ts`); icons are drawn by `scripts/make_icons.py`. FastAPI serves
+  the built app when `WEB_DIST_DIR` is set (`api/app.py`, `WebApp`): unknown paths outside
+  `/api/` get `index.html`. Tests: the contrast test reads `tokens.css` and checks every text
+  token on every surface (≥ 4.5:1) and the EV marks (≥ 3:1) in both modes; route tests (home with
+  and without the server, the capture page makes no request, not found, the offline indicator);
+  the manifest's required fields and that its icons exist; six API tests for the static serving.
+  Checked in the browser on the production build served by FastAPI (2026-11-08): home, capture
+  and not-found pages at phone width in dark mode, the service worker active, and the home and
+  `/capture` pages opening with the server stopped.
 
 ### Task 4 — Rules in TypeScript
 
