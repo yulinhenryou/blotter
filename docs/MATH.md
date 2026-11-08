@@ -435,6 +435,23 @@ Hero's net $n_{\text{hero}}$ is derived the same way. A known stack bounds the t
 s_i$, with equality exactly when the seat is all-in. If a seat is all-in and its stack is unknown,
 the stack is derived: $s_i = c_i$.
 
+#### Hands that end at hero's fold [record version 2, M4a]
+
+A record may stop at hero's fold (`ends_at_hero_fold`, ADR-0030): the last action is hero's fold,
+and nothing after it is recorded — no later actions, no board card dealt after it, no results.
+Everything up to and including that fold is checked by the rules above, exactly as in a complete
+record; the replay simply ends there, so seats that have not acted yet at that point need no
+action.
+
+What can be derived changes. Hero's net is known: only a seat whose total is strictly the largest
+can have chips returned as uncalled, and a seat that folds never is that seat (it folds facing a
+bet, or with nothing to call), so $n_{\text{hero}} = -c_{\text{hero}}$ (hero's total including
+any ante).
+The pots, the other seats' results and the rake are not known — the hand went on without hero —
+so $\rho$ is undefined (stored as unknown, not 0) and the conservation identity is not checked.
+Every hero decision is still in the record, so decision points (§5.1) are unaffected. Statistics
+that need the rake or other seats' results use complete records only.
+
 #### Worked examples (fixtures for M3a Task 2)
 
 Checked by hand and with an independent throwaway script; blinds 1/2 throughout.
@@ -1344,10 +1361,32 @@ Live players log selected hands. Let $S = 1$ if a hand is logged. If $S$ depends
 or on how memorable the hand is, $\mathbb{E}[\,\cdot \mid S = 1] \ne \mathbb{E}[\,\cdot\,]$ for EV
 loss, luck and leak statistics.
 
-Mitigations: (1) store `record_reason`; (2) offer a **random-sample protocol** (e.g. log the next
-hand that reaches the turn after a timer fires) so a subset is selected independently of outcome;
-(3) compute leak statistics separately on the random subset and the notable subset; (4) session
-results come from buy-in/cash-out, never from summing logged hands.
+Mitigations: (1) store `record_reason`; (2) a **random-sample protocol** (below) so a subset is
+selected independently of the cards and the outcome; (3) compute leak statistics separately on
+the random subset and the notable subset; (4) session results come from buy-in/cash-out, never
+from summing logged hands.
+
+**Random-sample protocol** (agreed with Henry on 2026-11-08, M4a plan D6; the phone's side is in
+`CAPTURE.md` §4):
+
+1. The phone draws a sample time uniformly between 20 and 40 minutes ahead — at the start of a
+   session, and again each time a sample is logged or marked missed.
+2. Once that time has passed and Henry notices it, the **next hand Henry is dealt into** is the
+   sample hand. It is fixed before its cards are seen; a hand already under way never counts.
+3. That hand is logged whatever happens — including a preflop fold, which takes a few taps because
+   the record may end at hero's fold (§1.5, version 2) — with `record_reason = random_sample`, even
+   if it also turns out notable.
+4. If it cannot be logged (details forgotten), it is marked **missed**; another hand is never
+   substituted. The phone keeps the log of sample times and their outcome.
+
+*Why this selects independently of the outcome.* Which hand is chosen depends on the clock and on
+when Henry looks at the phone, both fixed before the hand is dealt, and not on its cards or on
+what happens in it. So, if every sample is logged, the random subset is a sample of the hands
+Henry was dealt with selection probability independent of their content. Two things can break
+this, and both are measured rather than assumed: misses that depend on the hand (e.g. forgetting
+dull folds more often), reported as the miss rate from the phone's log; and noticing the time more
+often in some situations than others, which can shift *when* samples happen (e.g. more often
+after a break) but not which cards the next hand brings.
 
 - **[Derive]** under what assumptions statistics on the notable subset are still informative
   (e.g. selection depends on the outcome but not on decision quality given the situation).

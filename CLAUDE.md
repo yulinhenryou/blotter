@@ -156,7 +156,7 @@ Rationale and alternatives: `docs/ARCHITECTURE.md` and `docs/DECISIONS.md`.
 ├── web/                       # Vite + React + TS app; openapi.json = API contract
 ├── scripts/                   # repo tooling (name check, OpenAPI export)
 ├── docs/                      # VISION, ARCHITECTURE, MATH, ROADMAP, DECISIONS,
-│                              # DEVELOPMENT (setup and commands)
+│                              # CAPTURE (phone entry flow), DEVELOPMENT (setup and commands)
 │   └── plans/                 # per-milestone implementation plans
 └── .github/workflows/
 ```
