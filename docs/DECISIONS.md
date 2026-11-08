@@ -587,6 +587,12 @@ rules in the browser (e.g. Pyodide): a large download for a few hundred lines of
 and a rule change now touches `MATH.md`, Python, TypeScript and the corpus in one PR. Record
 version 2 (ADR-0030) is in the corpus from the start.
 
+Implemented in M4a Task 4: `web/src/rules/`; the corpus is built by `python/tests/rules_corpus.py`
+and written by `scripts/export_rules_corpus.py`. Besides the plan above, each step of the corpus
+holds a few probe moves with the server's violation code, so the phone names a mistake with the
+server's code; hands with some villain stacks unknown and the `MATH.md` §1.5 worked examples are
+included.
+
 ## ADR-0029: M4a acceptance criterion 5 reworded: Lighthouse has no PWA category
 
 - Status: Accepted (Henry, 2026-11-08: M4a plan decision D5 = (a))

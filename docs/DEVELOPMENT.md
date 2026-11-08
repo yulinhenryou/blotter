@@ -98,6 +98,17 @@ uv run --project python python scripts/export_hand_record_schema.py
 
 A Python test fails if it is stale.
 
+`web/src/rules/fixtures/corpus.json` is the rules corpus: hands and the Python rules' answers
+about them, which the TypeScript rules must reproduce (ADR-0028). After changing the betting rules
+(`review.domain.rules`, `review.domain.pots`), the test dealer or the worked examples:
+
+```bash
+uv run --project python python scripts/export_rules_corpus.py
+```
+
+A Python test fails if it is stale; then `cd web && npx vitest run src/rules` shows whether the
+TypeScript rules still agree.
+
 ## Database
 
 The API and the migrations read the SQLAlchemy URL from `DATABASE_URL`, for example

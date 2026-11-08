@@ -293,7 +293,8 @@ effective stack $S$, the acting order, an action abstraction, and **ranges** $r_
 ### 1.5 No-limit hold'em: betting rules and pot accounting [M3a]
 
 The rules every stored hand is checked against (`ARCHITECTURE.md` §7.3; validator, test dealer
-and decision-point extraction in M3a all implement this section). Scope of record version 1
+and decision-point extraction in M3a all implement this section, and so do the phone's rules in
+TypeScript, `web/src/rules/`, M4a, ADR-0028). Scope of record version 1
 (ADR-0024): no-limit hold'em cash games with 2–10 seats, small and big blind, straddles, antes.
 
 **Source.** Poker TDA Rules, 2026 version 1.1 (21 Sept 2026) **(checked**, rules 36-C, 45-A,
