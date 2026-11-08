@@ -14,6 +14,8 @@ on:
       - "web/openapi.json"
       - "scripts/export_hand_record_schema.py"
       - "web/hand-record.schema.json"
+      - "scripts/export_rules_corpus.py"
+      - "web/src/rules/fixtures/corpus.json"
       - ".github/workflows/python.yml"
 
 permissions:

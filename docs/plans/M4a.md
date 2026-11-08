@@ -258,6 +258,22 @@ Each task is one PR (D7).
   the generator.
 - Risk addressed: a second implementation that drifts from the first. The corpus is generated from
   the Python dealer and checker, not from the TypeScript code.
+- As implemented: `web/src/rules/` — `types.ts` (stakes, moves as a discriminated union on
+  `kind`, results), `seats.ts` (seat order, forced bets), `betting.ts` (an immutable state and pure
+  functions: `startHand`, `toAct`, `legalActions`, `moveViolation`, `play`, `streetOver`,
+  `nextStreet`, `advance`), `pots.ts` (`settle`: uncalled bet and pots; `firstInfeasiblePrefix`).
+  The corpus (`python/tests/rules_corpus.py`, written by `scripts/export_rules_corpus.py`, seed
+  20261108) has 205 hands: the five `MATH.md` §1.5 examples (Example 4 also cut at hero's fold)
+  and 200 dealer hands, of which 65 end at hero's fold, 58 have some villain stacks unknown and 74
+  have side pots. It holds 1,447 action steps, each with the legal actions read off the Python
+  checker and four probe moves with the server's verdict (5,788 probes, 574 of them legal), and
+  385 result probes; 1.0 MB, one hand per line. Vitest replays all of it; a second test file
+  checks the examples with the numbers as `MATH.md` gives them, and turn order, streets, forced
+  bets and immutability. Twenty injected faults in the TypeScript rules (raise rights, F at each
+  street, short all-ins, turn order, all-in flags, the order of the violation checks, uncalled
+  bet, antes, eligibility, feasibility, heads-up blinds, big-blind ante): all twenty caught, each
+  failing between 7 and 199 tests. Vitest 273 passed. One finding on the way: `-(0)` is `-0` in
+  JavaScript and Vitest's `toBe` tells it from `0`, so the test computes hero's net as `0 - total`.
 
 ### Task 5 — Offline store and sync
 
