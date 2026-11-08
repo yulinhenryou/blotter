@@ -86,8 +86,9 @@ capture/        # the capture routes and screens; imports rules, store, sync, de
 app/            # router, app shell, service-worker registration
 ```
 
-Dependency direction: `rules` imports nothing from the project; `store` imports `rules` types
-only; `sync` imports `store` and `api`; `capture` imports `rules`, `store`, `sync` and `design`. An
+Dependency direction: `rules` imports nothing from the project; `store` imports types only (the
+record types generated in `api/schema.d.ts`; as implemented in Task 5); `sync` imports `store` and
+`api`; `capture` imports `rules`, `store`, `sync` and `design`. An
 ESLint `no-restricted-imports` rule enforces that `capture` imports nothing that could carry
 analysis (today nothing like that exists; the rule is there before M4b adds it) — the structural
 half of ADR-0010; the end-to-end test is the behavioral half (AC4).
@@ -283,6 +284,42 @@ Each task is one PR (D7).
 - Tests: revision rules (send, lose the response, edit, resend); per-item states from every
   outcome of ADR-0026; a batch that partly fails; the JSON export round-trips into a valid sync
   batch.
+- As implemented: server — `list_venues` / `list_players` in `storage/repository.py` (venues by
+  name; players hero first, then by name) and `GET /api/v1/venues`, `GET /api/v1/players`;
+  `web/openapi.json` and `schema.d.ts` regenerated. Phone — `idb` 8.0.4 and `fake-indexeddb` 6.2.7
+  (ADR-0032). `web/src/store/`: `db.ts` (database `capture`, version 1, five object stores;
+  `requestPersistence`), `types.ts`, `ids.ts` (UUIDv7 on the phone), `records.ts` (the revision
+  rule as pure functions — `revisionForEdit`, `edited`, `markSent`, `keepMine` — and `putRecord`,
+  each save one transaction), `drafts.ts`, `timings.ts` (with the median of uninterrupted
+  entries), `samples.ts` (the 20–40-minute draw of `MATH.md` §4.5 and its log), `settings.ts`.
+  `web/src/sync/`: `batch.ts` (pure: what to send, applying the answer, waiting references,
+  merging pick lists, the export) and `sync.ts` (`syncOnce`, `serialized`, `autoSync`; the HTTP
+  calls are in `api/client.ts`). Choices made while building it, beyond §1.4:
+  - A record that refers to a record on the phone that the server does not hold waits instead of
+    being sent; one refused only for such a reference goes back to waiting. So hands whose session
+    was refused go out with the corrected session, without an edit of their own.
+  - An answer that arrives after the record was edited only notes the server's revision; the
+    edit stays pending.
+  - The export holds every unsynced record *and* the records they refer to, so the file can be
+    posted to a server that has lost them.
+  - Conflicts: "keep mine" (a revision above the server's) is implemented; "keep the server's" is
+    left to Task 6, which decides how the capture screens show conflicts.
+  - Sync on app open and on coming back online is a function (`autoSync`); the capture screens
+    wire it, with "after a save" and "Sync now", in Task 6.
+
+  Tests: 40 new Vitest tests (store 19, sync 21) on `fake-indexeddb` against a fake server that
+  follows ADR-0026 (`src/testing/fakeServer.ts`), covering each case above; Python
+  `test_venues_and_players_are_listed_as_stored` on both backends. Sixteen injected faults in
+  the store and sync code (the revision bump, the sent mark and when it is stored, answers for an
+  edited record, conflict, waiting references, pick lists overwriting edits, the export's
+  contents, result matching, overlapping runs, an empty batch posted, the sample window, the
+  timing median, the UUID variant): fifteen caught at first; the missed one (a result at the right
+  position naming another record) got its own test, and then all sixteen were caught. The fake
+  server was checked once against the real one (a TestClient on a temporary SQLite database): an
+  export of five records came back `created` and, posted again, `unchanged`; a hand with an
+  unknown session `invalid` at `session_id` with `unknown_session`. That check found a fixture
+  hand without hero's cards, which the fake server cannot notice (it does not run the checker).
+  Vitest 313 passed; pytest 144 passed, 33 skipped (PostgreSQL runs in CI).
 
 ### Task 6 — Capture screens
 
@@ -298,7 +335,9 @@ Each task is one PR (D7).
   production build; a new CI workflow that builds the Python package (with the Rust toolchain),
   the web app and runs them.
 - AC2: enter hands offline (`context.setOffline(true)`), reload the app offline, go back online,
-  sync; then sync again and check that the server holds each hand once.
+  sync; then sync again and check that the server holds each hand once. Also: post the phone's
+  JSON export to the real server and check that every item is accepted (Task 5 checks the export
+  against a fake server in Vitest and checked it against the real one once by hand).
 - AC3: an incomplete hand saved in the same flow.
 - AC4: on every capture route, no request other than `/api/v1/sync`, `/api/v1/venues`,
   `/api/v1/players` and `/api/v1/health`, and no EV, strategy or opponent output on the page.

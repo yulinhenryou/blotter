@@ -301,3 +301,34 @@ def test_reads(client: TestClient) -> None:
     assert client.get(f"/api/v1/sessions/{_uuid7(31)}").status_code == 404
     assert client.get(f"/api/v1/sessions/{_uuid7(31)}/hands").status_code == 404
     assert client.get(f"/api/v1/hands/{_uuid7(31)}").status_code == 404
+
+
+def test_venues_and_players_are_listed_as_stored(client: TestClient) -> None:
+    assert client.get("/api/v1/venues").json() == []
+    assert client.get("/api/v1/players").json() == []
+    venues = [
+        {"id": str(_uuid7(40)), "name": "Montesino", "kind": "live", "timezone": "Europe/Vienna"},
+        {"id": str(_uuid7(41)), "name": "Concord", "kind": "live", "timezone": "Europe/Vienna"},
+    ]
+    players = [
+        {"id": str(_uuid7(50)), "display_name": "Anna"},
+        {"id": str(_uuid7(51)), "display_name": "Zed", "is_hero": True},
+        {"id": str(_uuid7(52)), "display_name": "Bert", "notes": "3-bets light"},
+    ]
+    _sync(client, {"venues": venues, "players": players})
+    _sync(client, {"venues": [{**venues[0], "revision": 2, "name": "Montesino Wien"}]})
+
+    listed_venues = client.get("/api/v1/venues").json()
+    assert [(v["name"], v["revision"]) for v in listed_venues] == [
+        ("Concord", 1),
+        ("Montesino Wien", 2),  # the stored revision, by name
+    ]
+    listed_players = client.get("/api/v1/players").json()
+    assert [p["display_name"] for p in listed_players] == ["Zed", "Anna", "Bert"]  # hero first
+    assert listed_players[2] == {
+        "id": str(_uuid7(52)),
+        "revision": 1,
+        "display_name": "Bert",
+        "is_hero": False,
+        "notes": "3-bets light",
+    }

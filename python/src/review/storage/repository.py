@@ -543,6 +543,24 @@ def load_session(db: OrmSession, session_id: uuid.UUID) -> SessionRecord | None:
     return None if row is None else _session(row)
 
 
+def list_venues(db: OrmSession) -> list[VenueRecord]:
+    """Return every venue, by name."""
+    rows = db.scalars(
+        select(Venue).order_by(Venue.name, Venue.id).execution_options(populate_existing=True)
+    ).all()
+    return [_venue(row) for row in rows]
+
+
+def list_players(db: OrmSession) -> list[PlayerRecord]:
+    """Return every player, hero first, then by display name."""
+    rows = db.scalars(
+        select(Player)
+        .order_by(Player.is_hero.desc(), Player.display_name, Player.id)
+        .execution_options(populate_existing=True)
+    ).all()
+    return [_player(row) for row in rows]
+
+
 def list_sessions(db: OrmSession) -> list[SessionRecord]:
     """Return every session, the most recent start first."""
     rows = db.scalars(

@@ -1,4 +1,7 @@
-"""Read endpoints: sessions, their hands, and a hand with its decision points (GET only)."""
+"""Read endpoints (GET only): venues, players, sessions, hands, a hand's decision points.
+
+The phone reads venues and players to restore its pick lists after a reinstall (M4a plan §1.1).
+"""
 
 import uuid
 
@@ -7,11 +10,13 @@ from pydantic import BaseModel
 
 from review.api.deps import DbDep
 from review.domain import HandRecord
-from review.domain.entities import SessionRecord
+from review.domain.entities import PlayerRecord, SessionRecord, VenueRecord
 from review.ledger import Situation
 from review.storage.repository import (
     list_hands,
+    list_players,
     list_sessions,
+    list_venues,
     load_hand,
     load_session,
     load_stored_decision_points,
@@ -42,6 +47,18 @@ class HandDetail(BaseModel):
 
 def _not_found(what: str) -> HTTPException:
     return HTTPException(status_code=404, detail=f"{what} not found")
+
+
+@router.get("/venues")
+def get_venues(db: DbDep) -> list[VenueRecord]:
+    """List every venue, by name."""
+    return list_venues(db)
+
+
+@router.get("/players")
+def get_players(db: DbDep) -> list[PlayerRecord]:
+    """List every player, hero first, then by display name."""
+    return list_players(db)
 
 
 @router.get("/sessions")
