@@ -18,6 +18,7 @@
   --color-accent: #2f4a6d; /* links, primary buttons, focus */
   --color-on-accent: #ffffff; /* text on an accent background */
   --color-danger: #a3361f; /* field errors */
+  --color-suit-red: #b3261e; /* hearts and diamonds (told apart by symbol too) */
 
   /* Marks (graphics, not text): a colorblind-safe pair for EV gain/loss, used from M4b. */
   --color-ev-gain: #2b6cb0;
@@ -67,6 +68,7 @@
     --color-accent: #9db4d3;
     --color-on-accent: #121212;
     --color-danger: #f0937a;
+    --color-suit-red: #ff8a80;
 
     --color-ev-gain: #7fb2e5;
     --color-ev-loss: #f0a36b;

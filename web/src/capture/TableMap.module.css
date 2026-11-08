@@ -1,0 +1,82 @@
+.map {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-1);
+  margin: var(--space-3) 0;
+}
+
+.seat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: calc(var(--touch-target) + var(--space-6));
+  padding: var(--space-1);
+  overflow: hidden;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-2);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.seat:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.seat:disabled {
+  cursor: default;
+}
+
+.number {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bottom {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chips {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.out {
+  border-style: dashed;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+
+.hero {
+  border-color: var(--color-text-muted);
+}
+
+.toAct {
+  border: 2px solid var(--color-accent);
+}
+
+.folded .label,
+.folded .number {
+  color: var(--color-text-muted);
+}

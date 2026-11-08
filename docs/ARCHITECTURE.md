@@ -315,7 +315,9 @@ deliberately left out until measurement says otherwise.
   In production FastAPI serves the built app and answers unknown non-API paths with `index.html`;
   the service worker does the same offline (ADR-0031).
 - **Capture mode shows no analysis.** The capture routes do not fetch or render any EV, strategy
-  or opponent-model output (enforced by route structure and an e2e test). This is how the
+  or opponent-model output (enforced by route structure, an ESLint rule that lets
+  `web/src/capture/` import only `rules`, `store`, `sync` and `design`, and an e2e test). This is
+  how the
   post-game-only rule is built into the architecture.
 - **Entry speed**: target under 60 seconds for a typical key hand on a phone. Design levers:
   tap-only card picker, position-aware defaults, bet-size chips in bb and pot fractions,

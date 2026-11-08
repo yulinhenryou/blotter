@@ -1,4 +1,5 @@
 import { act, render, screen } from '@testing-library/react'
+import { IDBFactory } from 'fake-indexeddb'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -41,12 +42,16 @@ describe('home', () => {
 })
 
 describe('capture', () => {
-  it('renders without asking the server for anything', () => {
-    const fetch = vi.fn()
+  it('asks the server only for sync and the pick lists (ADR-0010)', async () => {
+    globalThis.indexedDB = new IDBFactory()
+    const fetch = vi.fn(() => Promise.resolve(Response.json([])))
     vi.stubGlobal('fetch', fetch)
     renderAt('/capture')
-    expect(screen.getByRole('heading', { name: 'Capture' })).toBeInTheDocument()
-    expect(fetch).not.toHaveBeenCalled()
+    expect(await screen.findByRole('heading', { name: 'Capture' })).toBeInTheDocument()
+    expect(await screen.findByText('All synced')).toBeInTheDocument()
+    // Nothing is pending, so no sync request: only the venue and player lists are fetched.
+    const urls = fetch.mock.calls.map((call: unknown[]) => String(call[0]))
+    expect(urls.sort()).toEqual(['/api/v1/players', '/api/v1/venues'])
   })
 })
 

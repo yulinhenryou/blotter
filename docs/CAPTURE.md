@@ -224,8 +224,11 @@ is the default while a sample is due). **Total 11.** Hero first to act and foldi
 
 **H3 — typical live hand, hero folds to a flop bet.** Hero opens in the cutoff, the BB 3-bets,
 hero calls; flop: BB bets half pot, hero folds. Setup 5; fold to hero 1; Raise + "5 bb" 2; fold to
-BB 1; BB Raise + "3×" 2; Call 1; flop cards 3; BB Bet + "½" 2; Fold 1; End here 1; BB stack typed
-"4" "5" "0" "✓" 4 (optional); Save 1. **Total 24** (20 without the stack).
+BB 1; BB Raise + "3×" 2; Call 1; flop cards 3; BB Bet + "½" 2; Fold 1; BB stack: Enter 1 +
+"4" "5" "0" "✓" 4 (optional); Save 1. **Total 24** (19 without the stack). Hero's fold leaves only
+the BB, so the hand ends by itself and there is no "End here". (The count made before the screens
+existed had an "End here" and missed the tap that opens the stack pad; the total was the same.
+Checked by the screen test in Task 6.)
 
 **H4 — `MATH.md` §1.5 Example 1, hero in the big blind.** Blinds 1/2, three dealt in; hero (C) has
 200. A raises all-in to 50 (stack unknown), B raises all-in to 120 (stack unknown), hero calls 120.
