@@ -63,6 +63,7 @@ How we will know the decision works (test, benchmark, measurement).
 | 0023 | M1 tolerances set from measured runs | Accepted |
 | 0024 | Hand record version 1: scope and rule source | Accepted |
 | 0025 | Storage dependencies; PostgreSQL in CI | Accepted |
+| 0026 | One write path: `POST /sync` by revision | Accepted |
 
 All records below dated 2026-11-03. Proposals 0004 (data format), 0006 (SQLAlchemy + Alembic),
 0007 (details), 0008, 0012, 0013, 0015 and 0016 were accepted by Henry on 2026-11-03; ADR-0014
@@ -494,3 +495,38 @@ not required.
 **Consequences.** A PostgreSQL-only failure shows up first in CI, not on the laptop. pg8000 is
 not used in production: the deployed database stays SQLite until a decision says otherwise.
 
+## ADR-0026: One write path: `POST /sync` by revision
+
+- Status: Accepted (Henry, 2026-11-07: M3a plan decision D3 = (a))
+- Date: 2026-11-08
+
+**Context.** The phone captures hands offline (M4a) and uploads them when it can reach the server.
+A lost response must be safe to retry, an edit made on the phone must reach the server, and one
+bad item must not block the rest of a session's hands.
+
+**Decision.**
+- The only write endpoint is `POST /api/v1/sync`. A batch holds lists of venues, players,
+  sessions and hands, each record with a client-generated UUIDv7 `id` and an integer
+  `revision` (≥ 1) that the client increments on every edit.
+- Per record: unknown id → `created`; higher revision → `replaced`; same revision and same
+  content → `unchanged`; same revision with other content, or a lower revision → `conflict`,
+  and the stored record stays as it is. The response gives each item's outcome and the revision
+  stored afterwards.
+- Every item is validated alone and saved in its own transaction. An item that fails validation
+  (the model's field rules, or the checker's rules for hands), refers to something not stored,
+  reuses a session's `client_seq`, or is refused by the database comes back as `invalid` with
+  field-level issues, and nothing of it is written; the other items are applied. Only a batch
+  whose own shape is wrong (not an object, a list that is not a list, an unknown key) is
+  rejected whole (HTTP 422).
+- Items are applied in dependency order — venues, players, sessions, hands — so one batch can
+  carry a new session with its hands. Hands are stored in canonical form, with their decision
+  points.
+- Reads are `GET` only: `/sessions`, `/sessions/{id}`, `/sessions/{id}/hands`, `/hands/{id}`.
+
+**Alternatives.** Per-resource `POST` / `PATCH` endpoints (D3 (b), the `ARCHITECTURE.md` §5.3
+sketch) would give two ways to write the same record with the same rules to keep in step. One
+transaction for the whole batch would let one bad hand undo a session's worth of good ones.
+
+**Consequences.** Retrying a batch is always safe. A conflict is reported, never resolved on the
+server; resolving it (keep mine, keep the server's) is the phone's job in M4a. A batch costs one
+transaction per item, which is fine at live-poker volumes (not yet measured for large imports).

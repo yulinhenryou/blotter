@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/v1/hands/{hand_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Hand
+         * @description Return one hand with its decision points.
+         */
+        get: operations["get_hand_api_v1_hands__hand_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -24,10 +44,278 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Sessions
+         * @description List every session, the most recent start first.
+         */
+        get: operations["get_sessions_api_v1_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session
+         * @description Return one session.
+         */
+        get: operations["get_session_api_v1_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/hands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Session Hands
+         * @description List a session's hands in the order they were played (``client_seq``).
+         */
+        get: operations["get_session_hands_api_v1_sessions__session_id__hands_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync
+         * @description Apply a batch item by item and report what happened to each (ADR-0026).
+         */
+        post: operations["sync_api_v1_sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * Action
+         * @description One action. ``amount_to_chips`` is the seat's total on this street after the action.
+         */
+        Action: {
+            /**
+             * All In
+             * @default false
+             */
+            all_in: boolean;
+            /**
+             * Amount Approximate
+             * @default false
+             */
+            amount_approximate: boolean;
+            /** Amount To Chips */
+            amount_to_chips?: number | null;
+            /** Ante Chips */
+            ante_chips?: number | null;
+            kind: components["schemas"]["ActionKind"];
+            /** Seat */
+            seat: number;
+            street: components["schemas"]["Street"];
+        };
+        /**
+         * ActionKind
+         * @description What a seat did. The ``post_*`` kinds are forced bets (``docs/MATH.md`` §1.5).
+         * @enum {string}
+         */
+        ActionKind: "post_ante" | "post_small_blind" | "post_big_blind" | "post_straddle" | "fold" | "check" | "call" | "bet" | "raise";
+        /**
+         * Ante
+         * @description An ante: every dealt-in seat posts ``chips``, or the big blind posts it once.
+         */
+        Ante: {
+            /** Chips */
+            chips: number;
+            kind: components["schemas"]["AnteKind"];
+        };
+        /**
+         * AnteKind
+         * @description Who posts the ante.
+         * @enum {string}
+         */
+        AnteKind: "per_player" | "big_blind";
+        /**
+         * Board
+         * @description Community cards; ``None`` for a street that was not dealt.
+         */
+        Board: {
+            /** Flop */
+            flop?: [
+                string,
+                string,
+                string
+            ] | null;
+            /** River */
+            river?: string | null;
+            /** Turn */
+            turn?: string | null;
+        };
+        /**
+         * BoardSuits
+         * @description How the board's suits repeat (item 10).
+         * @enum {string}
+         */
+        BoardSuits: "rainbow" | "two_tone" | "flush_possible";
+        /**
+         * Completeness
+         * @description What the record does not know exactly. Derived; see ``docs/ARCHITECTURE.md`` §7.3.
+         */
+        Completeness: {
+            /** Amounts Approximate */
+            amounts_approximate: boolean;
+            /** Stacks Approximate */
+            stacks_approximate: boolean;
+            /** Villain Cards Unknown */
+            villain_cards_unknown: boolean;
+        };
+        /**
+         * DecisionPointOut
+         * @description One hero decision: the index of its action in ``hand.actions`` and its situation key.
+         *
+         *     Every decision is unscored until the evaluator exists (M3b); ``unscored_reason`` says why.
+         */
+        DecisionPointOut: {
+            /** Action Seq */
+            action_seq: number;
+            /** Classifier Version */
+            classifier_version: number;
+            /** Scorable */
+            scorable: boolean;
+            situation: components["schemas"]["Situation"];
+            /** Unscored Reason */
+            unscored_reason: string | null;
+        };
+        /**
+         * Depth
+         * @description Stack-to-pot ratio postflop, effective stack in big blinds preflop (item 8).
+         * @enum {string}
+         */
+        Depth: "spr_lt_2" | "spr_2_4" | "spr_4_8" | "spr_8_plus" | "bb_lt_40" | "bb_40_100" | "bb_100_200" | "bb_200_plus" | "unknown";
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HandDetail
+         * @description A stored hand (its canonical record) with its decision points.
+         */
+        HandDetail: {
+            /** Decision Points */
+            decision_points: components["schemas"]["DecisionPointOut"][];
+            hand: components["schemas"]["HandRecord"];
+        };
+        /**
+         * HandRecord
+         * @description One hand, as captured or as stored.
+         *
+         *     The fields ``completeness``, ``rake_chips`` and ``hero_net_chips`` are derived: they are
+         *     ignored on input and filled in by :func:`review.domain.check.check`.
+         */
+        HandRecord: {
+            /**
+             * Actions
+             * @default []
+             */
+            actions: components["schemas"]["Action"][];
+            /** @default {} */
+            board: components["schemas"]["Board"];
+            /** Button Seat */
+            button_seat: number;
+            /** Client Seq */
+            client_seq: number;
+            completeness?: components["schemas"]["Completeness"] | null;
+            /** Dealt In Seats */
+            dealt_in_seats: number[];
+            /** Hero Net Chips */
+            hero_net_chips?: number | null;
+            /** Hero Seat */
+            hero_seat: number;
+            /**
+             * Id
+             * Format: uuid7
+             */
+            id: string;
+            /** Played At */
+            played_at?: string | null;
+            /** Rake Chips */
+            rake_chips?: number | null;
+            record_reason: components["schemas"]["RecordReason"];
+            /**
+             * Results
+             * @default []
+             */
+            results: components["schemas"]["Result"][];
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+            /**
+             * Seats
+             * @default []
+             */
+            seats: components["schemas"]["SeatEntry"][];
+            /**
+             * Session Id
+             * Format: uuid7
+             */
+            session_id: string;
+            /**
+             * Source
+             * @default manual
+             * @constant
+             */
+            source: "manual";
+            stakes: components["schemas"]["Stakes"];
+            /** Table Size */
+            table_size: number;
+        };
         /**
          * Health
          * @description Response body of ``GET /api/v1/health``.
@@ -41,6 +329,362 @@ export interface components {
              */
             status: "ok";
         };
+        /**
+         * HighCard
+         * @description The board's highest rank.
+         * @enum {string}
+         */
+        HighCard: "ace" | "broadway" | "ten_or_lower";
+        /**
+         * InPosition
+         * @description Hero's place in the postflop order among the seats in hand (item 6).
+         * @enum {string}
+         */
+        InPosition: "ip" | "oop" | "middle";
+        /**
+         * Initiative
+         * @description Who made the last voluntary bet or raise on the previous street (item 7).
+         * @enum {string}
+         */
+        Initiative: "hero" | "villain" | "none";
+        /**
+         * IssueOut
+         * @description Why an item is invalid: a field path inside the item, a stable code and a sentence.
+         */
+        IssueOut: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Path */
+            path: (string | number)[];
+        };
+        /**
+         * NewCard
+         * @description What the turn or river card did: the first of these that applies.
+         * @enum {string}
+         */
+        NewCard: "pairs_board" | "completes_flush" | "completes_straight" | "overcard" | "blank";
+        /**
+         * Pairing
+         * @description How the board's ranks repeat.
+         * @enum {string}
+         */
+        Pairing: "unpaired" | "paired" | "heavily_paired";
+        /**
+         * PlayerRecord
+         * @description Hero or a known opponent. Anonymous seats have no player.
+         */
+        PlayerRecord: {
+            /** Display Name */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid7
+             */
+            id: string;
+            /**
+             * Is Hero
+             * @default false
+             */
+            is_hero: boolean;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+        };
+        /**
+         * Players
+         * @description Seats in hand at the decision, hero included (item 4).
+         * @enum {string}
+         */
+        Players: "heads_up" | "three_way" | "four_plus";
+        /**
+         * PositionGroup
+         * @description Coarse position, used for pooling (item 5).
+         * @enum {string}
+         */
+        PositionGroup: "early" | "middle" | "late" | "blinds";
+        /**
+         * PotType
+         * @description Voluntary raises in the preflop round (item 3).
+         * @enum {string}
+         */
+        PotType: "limped" | "single_raised" | "3bet" | "4bet_plus";
+        /**
+         * RecordReason
+         * @description Why the hand was logged (``docs/MATH.md`` §4.5).
+         * @enum {string}
+         */
+        RecordReason: "notable" | "routine" | "random_sample";
+        /**
+         * Result
+         * @description Chips won by one seat. Seats without an entry won nothing.
+         */
+        Result: {
+            /** Seat */
+            seat: number;
+            /** Won Chips */
+            won_chips: number;
+        };
+        /**
+         * SeatEntry
+         * @description What is known about one dealt-in seat.
+         */
+        SeatEntry: {
+            /** Hole Cards */
+            hole_cards?: [
+                string,
+                string
+            ] | null;
+            /** Player Id */
+            player_id?: string | null;
+            /** Seat */
+            seat: number;
+            /**
+             * Showed
+             * @default false
+             */
+            showed: boolean;
+            /**
+             * Stack Approximate
+             * @default false
+             */
+            stack_approximate: boolean;
+            /** Starting Stack Chips */
+            starting_stack_chips?: number | null;
+        };
+        /**
+         * SessionRecord
+         * @description A playing session at one stake. Results come from buy-in and cash-out (``MATH.md`` §4.5).
+         */
+        SessionRecord: {
+            /** Big Blind Chips */
+            big_blind_chips: number;
+            /** Buy In Chips */
+            buy_in_chips?: number | null;
+            /** Cash Out Chips */
+            cash_out_chips?: number | null;
+            /** Chip Unit Minor */
+            chip_unit_minor?: number | null;
+            /**
+             * Currency
+             * @example EUR
+             */
+            currency?: string | null;
+            /** Ended At */
+            ended_at?: string | null;
+            /**
+             * Id
+             * Format: uuid7
+             */
+            id: string;
+            /** Notes */
+            notes?: string | null;
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+            /** Small Blind Chips */
+            small_blind_chips: number;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Venue Id */
+            venue_id?: string | null;
+        };
+        /**
+         * Situation
+         * @description The situation key of one decision point. ``None`` marks a column that does not apply.
+         */
+        Situation: {
+            depth: components["schemas"]["Depth"];
+            /** Facing All In */
+            facing_all_in: boolean;
+            in_position: components["schemas"]["InPosition"] | null;
+            initiative: components["schemas"]["Initiative"] | null;
+            /** Line */
+            line: string;
+            players: components["schemas"]["Players"];
+            position_group: components["schemas"]["PositionGroup"];
+            /** Position Label */
+            position_label: string;
+            pot_type: components["schemas"]["PotType"] | null;
+            size: components["schemas"]["Size"] | null;
+            spot: components["schemas"]["Spot"];
+            /** Straddled */
+            straddled: boolean;
+            street: components["schemas"]["Street"];
+            texture: components["schemas"]["Texture"] | null;
+        };
+        /**
+         * Size
+         * @description The bet hero faces: fraction of the pot postflop, multiple of the raised bet preflop.
+         * @enum {string}
+         */
+        Size: "small" | "medium" | "large" | "overbet" | "lt_2_5x" | "2_5x_3_5x" | "3_5x_5x" | "5x_plus";
+        /**
+         * Spot
+         * @description What hero faces on this street (``MATH.md`` §5.1, item 2).
+         * @enum {string}
+         */
+        Spot: "unopened" | "limped" | "facing_open" | "facing_3bet" | "facing_4bet_plus" | "no_bet" | "facing_bet" | "facing_raise";
+        /**
+         * Stakes
+         * @description Forced bets of the hand, in chips.
+         */
+        Stakes: {
+            ante?: components["schemas"]["Ante"] | null;
+            /** Big Blind Chips */
+            big_blind_chips: number;
+            /** Small Blind Chips */
+            small_blind_chips: number;
+            /**
+             * Straddles Chips
+             * @default []
+             */
+            straddles_chips: number[];
+        };
+        /**
+         * Street
+         * @description Betting rounds, in order.
+         * @enum {string}
+         */
+        Street: "preflop" | "flop" | "turn" | "river";
+        /**
+         * SyncBatch
+         * @description A batch from the phone. Each list may be empty or left out.
+         */
+        SyncBatch: {
+            /**
+             * Hands
+             * @default []
+             */
+            hands: components["schemas"]["HandRecord"][];
+            /**
+             * Players
+             * @default []
+             */
+            players: components["schemas"]["PlayerRecord"][];
+            /**
+             * Sessions
+             * @default []
+             */
+            sessions: components["schemas"]["SessionRecord"][];
+            /**
+             * Venues
+             * @default []
+             */
+            venues: components["schemas"]["VenueRecord"][];
+        };
+        /**
+         * SyncItemResult
+         * @description The result for one item of the batch.
+         *
+         *     ``index`` is the item's position in its list in the request. ``stored_revision`` is the
+         *     revision stored after the call (``None`` when nothing is stored for an invalid item).
+         */
+        SyncItemResult: {
+            /** Id */
+            id: string | null;
+            /** Index */
+            index: number;
+            /**
+             * Issues
+             * @default []
+             */
+            issues: components["schemas"]["IssueOut"][];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "venue" | "player" | "session" | "hand";
+            outcome: components["schemas"]["SyncOutcome"];
+            /** Stored Revision */
+            stored_revision: number | null;
+        };
+        /**
+         * SyncOutcome
+         * @description What happened to one item.
+         * @enum {string}
+         */
+        SyncOutcome: "created" | "replaced" | "unchanged" | "conflict" | "invalid";
+        /**
+         * SyncResponse
+         * @description One result per item, venues first, then players, sessions and hands, each in order.
+         */
+        SyncResponse: {
+            /** Items */
+            items: components["schemas"]["SyncItemResult"][];
+        };
+        /**
+         * Texture
+         * @description The board at the decision; ``new_card`` is ``None`` on the flop.
+         */
+        Texture: {
+            /** Connected */
+            connected: boolean;
+            high_card: components["schemas"]["HighCard"];
+            new_card: components["schemas"]["NewCard"] | null;
+            pairing: components["schemas"]["Pairing"];
+            suits: components["schemas"]["BoardSuits"];
+            texture_class: components["schemas"]["TextureClass"];
+        };
+        /**
+         * TextureClass
+         * @description The pooled texture: the first of these that applies.
+         * @enum {string}
+         */
+        TextureClass: "paired" | "flush_possible" | "connected" | "two_tone" | "dry";
+        /** ValidationError */
+        ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+        };
+        /**
+         * VenueKind
+         * @description Where a session is played.
+         * @enum {string}
+         */
+        VenueKind: "live" | "online";
+        /**
+         * VenueRecord
+         * @description A card room or an online site.
+         */
+        VenueRecord: {
+            /**
+             * Id
+             * Format: uuid7
+             */
+            id: string;
+            kind: components["schemas"]["VenueKind"];
+            /** Name */
+            name: string;
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+            /**
+             * Timezone
+             * @example Europe/Vienna
+             */
+            timezone: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -50,6 +694,44 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_hand_api_v1_hands__hand_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hand_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandDetail"];
+                };
+            };
+            /** @description No such hand */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_api_v1_health_get: {
         parameters: {
             query?: never;
@@ -66,6 +748,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    get_sessions_api_v1_sessions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRecord"][];
+                };
+            };
+        };
+    };
+    get_session_api_v1_sessions__session_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionRecord"];
+                };
+            };
+            /** @description No such session */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_session_hands_api_v1_sessions__session_id__hands_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandRecord"][];
+                };
+            };
+            /** @description No such session */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_api_v1_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncBatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

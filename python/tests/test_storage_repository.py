@@ -5,8 +5,10 @@ variants), record -> rows -> record is the identity on both backends. Revision r
 """
 
 import random
+import uuid
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta, timezone
+from typing import Any
 
 import pytest
 from dealer import deal
@@ -16,6 +18,7 @@ from sqlalchemy import Engine, delete, func, select
 from sqlalchemy.orm import Session as OrmSession
 
 from review.domain import HandRecord, check
+from review.domain.entities import PlayerRecord, SessionRecord, VenueKind, VenueRecord
 from review.domain.record import POSTS, SeatEntry
 from review.ledger import DecisionPoint, decision_points
 from review.storage import migrate
@@ -31,9 +34,16 @@ from review.storage.models import (
 from review.storage.repository import (
     NotCanonicalError,
     SaveOutcome,
+    UnknownReferenceError,
     load_decision_points,
     load_hand,
+    load_player,
+    load_session,
+    load_venue,
     save_hand,
+    save_player,
+    save_session,
+    save_venue,
 )
 
 # One migrated database per test (the fixture), shared by that test's Hypothesis examples; each
@@ -218,3 +228,64 @@ def test_only_canonical_records_are_saved(engine: Engine, rng: random.Random) ->
 def test_loading_a_missing_hand_gives_none(engine: Engine) -> None:
     hand, _ = deal(random.Random(0))
     assert _load(engine, hand) is None
+
+
+# --- Venues, players, sessions -----------------------------------------------------------------
+
+
+def _entities() -> list[tuple[Any, Any, Any, Any]]:
+    venue = VenueRecord(
+        id=uuid.UUID("019a5f00-0000-7000-8000-000000000001"),
+        name="Casino",
+        kind=VenueKind.LIVE,
+        timezone="Europe/Vienna",
+    )
+    player = PlayerRecord(id=uuid.UUID("019a5f00-0000-7000-8000-000000000002"), display_name="V")
+    session = SessionRecord(
+        id=uuid.UUID("019a5f00-0000-7000-8000-000000000003"),
+        venue_id=venue.id,
+        started_at=datetime(2026, 11, 7, 20, tzinfo=timezone(timedelta(hours=1))),
+        small_blind_chips=1,
+        big_blind_chips=3,
+        currency="EUR",
+        chip_unit_minor=100,
+    )
+    return [
+        (venue, save_venue, load_venue, {"name": "Casino 2"}),
+        (player, save_player, load_player, {"notes": "calls too much"}),
+        (session, save_session, load_session, {"cash_out_chips": 450}),
+    ]
+
+
+@pytest.mark.parametrize("which", [0, 1, 2], ids=["venue", "player", "session"])
+def test_entities_follow_the_revision_rules(engine: Engine, which: int) -> None:
+    entities = _entities()
+    record, save, load, change = entities[which]
+
+    def run(r: Any) -> tuple[SaveOutcome, int]:
+        with OrmSession(engine) as db, db.begin():
+            if which == 2:  # a session refers to its venue
+                save_venue(db, entities[0][0])
+            saved = save(db, r)
+        return saved.outcome, saved.stored_revision
+
+    def stored() -> Any:
+        with OrmSession(engine) as db:
+            return load(db, record.id)
+
+    assert run(record) == (SaveOutcome.CREATED, 1)
+    assert stored() == record
+    assert run(record) == (SaveOutcome.UNCHANGED, 1)
+    edited = record.model_copy(update=change)
+    assert run(edited) == (SaveOutcome.CONFLICT, 1)
+    newer = record.model_copy(update={**change, "revision": 2})
+    assert run(newer) == (SaveOutcome.REPLACED, 2)
+    assert stored() == newer
+    assert run(record) == (SaveOutcome.CONFLICT, 2)
+    assert stored() == newer
+
+
+def test_a_session_needs_its_venue(engine: Engine) -> None:
+    session = _entities()[2][0]
+    with pytest.raises(UnknownReferenceError), OrmSession(engine) as db, db.begin():
+        save_session(db, session)

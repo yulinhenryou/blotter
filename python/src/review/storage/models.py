@@ -28,6 +28,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from review.domain.entities import VenueKind
 from review.domain.record import ActionKind, AnteKind, RecordReason, Street
 from review.storage.types import UTCDateTime
 
@@ -58,13 +59,6 @@ def _text_enum[E: StrEnum](enum: type[E], name: str) -> Enum:
         length=max(len(m.value) for m in enum),
         values_callable=lambda members: [m.value for m in members],
     )
-
-
-class VenueKind(StrEnum):
-    """Where a session is played."""
-
-    LIVE = "live"
-    ONLINE = "online"
 
 
 class HandSource(StrEnum):

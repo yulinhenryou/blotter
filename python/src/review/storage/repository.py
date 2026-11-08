@@ -1,4 +1,4 @@
-"""Hand records to rows and back, and saving by revision (M3a plan §1.2 and D3).
+"""Records to rows and back, and saving by revision (M3a plan §1.2, ADR-0026).
 
 A stored hand is the canonical record (:func:`review.domain.check.check`) as rows: one ``hands``
 row, one ``hand_seats`` row per dealt-in seat, one ``actions`` row per action. The mapping is
@@ -15,11 +15,16 @@ Revisions (D3): the same id and revision with the same content changes nothing; 
 replaces the hand; the same revision with different content, or a lower revision, is a conflict
 and leaves the stored hand as it is.
 
+Venues, players and sessions (:mod:`review.domain.entities`) are one row each and follow the same
+revision rules. Every save checks the record's references first (a hand's session and players, a
+session's venue) and refuses a record that refers to something not stored.
+
 The functions here run inside the caller's transaction and never commit: the caller decides what
-belongs together (in Task 6, one item of a sync batch).
+belongs together (the sync endpoint: one item of a batch).
 """
 
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Literal
@@ -29,6 +34,7 @@ from sqlalchemy.orm import Session as OrmSession
 
 from review.domain import HandRecord, check
 from review.domain.check import Issue
+from review.domain.entities import PlayerRecord, SessionRecord, VenueRecord
 from review.domain.record import (
     SCHEMA_VERSION,
     Action,
@@ -57,14 +63,24 @@ from review.ledger.situations import (
     Spot,
     TextureClass,
 )
-from review.storage.models import DecisionPointRow, Hand, HandAction, HandSeat, HandSource
+from review.storage.models import (
+    Base,
+    DecisionPointRow,
+    Hand,
+    HandAction,
+    HandSeat,
+    HandSource,
+    Player,
+    Session,
+    Venue,
+)
 
 UNSCORED_REASON = "engine_not_available"
 """Why every decision point is unscored until the evaluator exists (M3b)."""
 
 
 class SaveOutcome(StrEnum):
-    """What :func:`save_hand` did."""
+    """What a save did."""
 
     CREATED = "created"
     REPLACED = "replaced"
@@ -80,13 +96,23 @@ class Saved:
     stored_revision: int
 
 
-class NotCanonicalError(ValueError):
-    """The record is invalid, or valid but not in canonical form; nothing was written."""
+class RejectedError(ValueError):
+    """The record cannot be stored; nothing was written. ``issues`` says why, field by field."""
+
+    def __init__(self, issues: tuple[Issue, ...], fallback: str = "rejected") -> None:
+        self.issues = issues
+        super().__init__("; ".join(f"{i.location}: {i.code}" for i in issues) or fallback)
+
+
+class NotCanonicalError(RejectedError):
+    """The hand record is invalid, or valid but not in canonical form."""
 
     def __init__(self, issues: tuple[Issue, ...]) -> None:
-        self.issues = issues
-        detail = "; ".join(f"{i.location}: {i.code}" for i in issues) or "not in canonical form"
-        super().__init__(detail)
+        super().__init__(issues, "not in canonical form")
+
+
+class UnknownReferenceError(RejectedError):
+    """The record refers to a session, player or venue that is not stored, or reuses a number."""
 
 
 def save_hand(db: OrmSession, record: HandRecord) -> Saved:
@@ -97,12 +123,16 @@ def save_hand(db: OrmSession, record: HandRecord) -> Saved:
     NotCanonicalError
         If ``check(record)`` reports issues, or its canonical form differs from ``record``.
         Only canonical records are stored, so that rows always describe a valid hand.
+    UnknownReferenceError
+        If the session or a player is not stored, or another hand of the session has the same
+        ``client_seq``.
     """
     result = check(record)
     if not result.ok:
         raise NotCanonicalError(result.issues)
     if result.record != record:
         raise NotCanonicalError(())
+    _check_hand_references(db, record)
 
     # FOR UPDATE locks the row on PostgreSQL until the transaction ends, so that two saves of
     # the same hand cannot both read revision n and both write; SQLite ignores it (it locks the
@@ -328,8 +358,25 @@ def _value(member: StrEnum | None) -> str | None:
 # --- rows -> record ----------------------------------------------------------------------------
 
 
+@dataclass(frozen=True)
+class StoredDecisionPoint:
+    """A decision point as stored: with its classifier version and whether it is scored yet."""
+
+    point: DecisionPoint
+    classifier_version: int
+    scorable: bool
+    unscored_reason: str | None
+
+
 def load_decision_points(db: OrmSession, hand_id: uuid.UUID) -> tuple[DecisionPoint, ...]:
-    """Read a stored hand's decision points, in order.
+    """Read a stored hand's decision points, in order (see :func:`load_stored_decision_points`)."""
+    return tuple(stored.point for stored in load_stored_decision_points(db, hand_id))
+
+
+def load_stored_decision_points(
+    db: OrmSession, hand_id: uuid.UUID
+) -> tuple[StoredDecisionPoint, ...]:
+    """Read a stored hand's decision points with their scoring columns, in order.
 
     Raises
     ------
@@ -379,7 +426,14 @@ def load_decision_points(db: OrmSession, hand_id: uuid.UUID) -> tuple[DecisionPo
             line=row.line,
             straddled=row.straddled,
         )
-        points.append(DecisionPoint(row.action_seq, situation))
+        points.append(
+            StoredDecisionPoint(
+                DecisionPoint(row.action_seq, situation),
+                row.classifier_version,
+                row.scorable,
+                row.unscored_reason,
+            )
+        )
     return tuple(points)
 
 
@@ -405,3 +459,153 @@ def _source(value: HandSource) -> Literal["manual"]:
     if value is not HandSource.MANUAL:
         raise ValueError(f"stored hand has source {value!r}; record v1 knows only 'manual'")
     return "manual"
+
+
+# --- References --------------------------------------------------------------------------------
+
+
+def _exists(db: OrmSession, model: type[Base], key: uuid.UUID) -> bool:
+    return db.get(model, key) is not None
+
+
+def _check_hand_references(db: OrmSession, r: HandRecord) -> None:
+    issues: list[Issue] = []
+    if not _exists(db, Session, r.session_id):
+        issues.append(Issue(("session_id",), "unknown_session", "no session with this id"))
+    for i, entry in enumerate(r.seats):
+        if entry.player_id is not None and not _exists(db, Player, entry.player_id):
+            path = ("seats", i, "player_id")
+            issues.append(Issue(path, "unknown_player", "no player with this id"))
+    clash = db.execute(
+        select(Hand.id).where(
+            Hand.session_id == r.session_id, Hand.client_seq == r.client_seq, Hand.id != r.id
+        )
+    ).first()
+    if clash is not None:
+        issues.append(
+            Issue(("client_seq",), "duplicate_client_seq", "another hand of the session has it")
+        )
+    if issues:
+        raise UnknownReferenceError(tuple(issues))
+
+
+# --- Venues, players, sessions -----------------------------------------------------------------
+
+
+def save_venue(db: OrmSession, record: VenueRecord) -> Saved:
+    """Save a venue by revision (ADR-0026)."""
+    return _save_by_revision(db, Venue, record, record.model_dump(), _venue)
+
+
+def save_player(db: OrmSession, record: PlayerRecord) -> Saved:
+    """Save a player by revision (ADR-0026)."""
+    return _save_by_revision(db, Player, record, record.model_dump(), _player)
+
+
+def save_session(db: OrmSession, record: SessionRecord) -> Saved:
+    """Save a session by revision (ADR-0026).
+
+    Raises
+    ------
+    UnknownReferenceError
+        If ``venue_id`` names a venue that is not stored.
+    """
+    if record.venue_id is not None and not _exists(db, Venue, record.venue_id):
+        raise UnknownReferenceError(
+            (Issue(("venue_id",), "unknown_venue", "no venue with this id"),)
+        )
+    return _save_by_revision(db, Session, record, record.model_dump(), _session)
+
+
+def load_venue(db: OrmSession, venue_id: uuid.UUID) -> VenueRecord | None:
+    """Return the stored venue, or ``None``."""
+    row = _fresh(db, Venue, venue_id)
+    return None if row is None else _venue(row)
+
+
+def load_player(db: OrmSession, player_id: uuid.UUID) -> PlayerRecord | None:
+    """Return the stored player, or ``None``."""
+    row = _fresh(db, Player, player_id)
+    return None if row is None else _player(row)
+
+
+def load_session(db: OrmSession, session_id: uuid.UUID) -> SessionRecord | None:
+    """Return the stored session, or ``None``."""
+    row = _fresh(db, Session, session_id)
+    return None if row is None else _session(row)
+
+
+def list_sessions(db: OrmSession) -> list[SessionRecord]:
+    """Return every session, the most recent start first."""
+    rows = db.scalars(
+        select(Session)
+        .order_by(Session.started_at.desc(), Session.id)
+        .execution_options(populate_existing=True)
+    ).all()
+    return [_session(row) for row in rows]
+
+
+def list_hands(db: OrmSession, session_id: uuid.UUID) -> list[HandRecord]:
+    """Return the hands of a session in ``client_seq`` order (one query per hand for now)."""
+    ids = db.scalars(
+        select(Hand.id).where(Hand.session_id == session_id).order_by(Hand.client_seq)
+    ).all()
+    hands = [load_hand(db, hand_id) for hand_id in ids]
+    return [h for h in hands if h is not None]
+
+
+def _save_by_revision[R: VenueRecord | PlayerRecord | SessionRecord, M: (Venue, Player, Session)](
+    db: OrmSession,
+    model: type[M],
+    record: R,
+    row: dict[str, Any],
+    to_record: Callable[[M], R],
+) -> Saved:
+    # As for hands: FOR UPDATE keeps two saves of one record from both passing the check.
+    stored = db.get(model, record.id, with_for_update=True, populate_existing=True)
+    if stored is None:
+        db.execute(insert(model), [row])
+        return Saved(SaveOutcome.CREATED, record.revision)
+    if record.revision > stored.revision:
+        db.execute(update(model).where(model.id == record.id).values(row))
+        return Saved(SaveOutcome.REPLACED, record.revision)
+    if record.revision == stored.revision and to_record(stored) == record:
+        return Saved(SaveOutcome.UNCHANGED, stored.revision)
+    return Saved(SaveOutcome.CONFLICT, stored.revision)
+
+
+def _fresh[M: Base](db: OrmSession, model: type[M], key: uuid.UUID) -> M | None:
+    return db.get(model, key, populate_existing=True)
+
+
+def _venue(row: Venue) -> VenueRecord:
+    return VenueRecord(
+        id=row.id, revision=row.revision, name=row.name, kind=row.kind, timezone=row.timezone
+    )
+
+
+def _player(row: Player) -> PlayerRecord:
+    return PlayerRecord(
+        id=row.id,
+        revision=row.revision,
+        display_name=row.display_name,
+        is_hero=row.is_hero,
+        notes=row.notes,
+    )
+
+
+def _session(row: Session) -> SessionRecord:
+    return SessionRecord(
+        id=row.id,
+        revision=row.revision,
+        venue_id=row.venue_id,
+        started_at=row.started_at,
+        ended_at=row.ended_at,
+        small_blind_chips=row.small_blind_chips,
+        big_blind_chips=row.big_blind_chips,
+        currency=row.currency,
+        chip_unit_minor=row.chip_unit_minor,
+        buy_in_chips=row.buy_in_chips,
+        cash_out_chips=row.cash_out_chips,
+        notes=row.notes,
+    )
