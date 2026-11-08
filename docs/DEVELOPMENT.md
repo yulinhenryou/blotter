@@ -69,6 +69,19 @@ npm test
 npm run build
 ```
 
+End-to-end tests (Playwright, ADR-0033) run the production build against the real API. The
+first time, download the browsers: `npx playwright install chromium webkit`. Then:
+
+```bash
+npm run build
+npm run e2e
+```
+
+`npm run e2e` starts `scripts/e2e_server.py` itself (FastAPI on a fresh temporary SQLite database,
+serving `web/dist` and the API on `127.0.0.1:8765`) and stops it at the end; it fails if something
+else already listens on that port. A failed test leaves a trace in `web/test-results/`
+(`npx playwright show-trace <path>/trace.zip`).
+
 ### Repository
 
 ```bash

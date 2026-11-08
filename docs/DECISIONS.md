@@ -716,3 +716,32 @@ interleave.
 specification in JavaScript; Safari's own IndexedDB is exercised by the end-to-end tests (WebKit,
 M4a Task 7) and on Henry's iPhone (Task 8).
 
+
+## ADR-0033: Playwright for the end-to-end tests
+
+- Status: Accepted (follows ADR-0007 and the M4a plan, §0.2 and Task 7, accepted by Henry on
+  2026-11-08)
+- Date: 2026-11-09
+
+**Context.** M4a's acceptance criteria 2, 4 and 5 are checked by end-to-end tests: the production
+build in a real browser engine, against the real API (M4a plan, Task 7). ADR-0007 names Playwright
+for this from M4a. Licenses must be compatible with MIT OR Apache-2.0 (`CLAUDE.md` §2.6).
+
+**Decision.** `@playwright/test` 1.65.0 (released 2026-11-05), a dev dependency, as installed on
+2026-11-09 from the npm registry. It adds three packages, all Apache-2.0: `@playwright/test`,
+`playwright` and `playwright-core` (1.65.0 each). The browsers (Playwright's builds of Chromium and
+WebKit) are downloaded by `npx playwright install`, locally and in CI; they are not npm packages
+and are not committed. `npm audit` is unchanged (the 15 dev advisories accepted in ADR-0031);
+`npm audit --omit=dev` reports 0.
+
+The tests run against FastAPI serving the built app on a fresh temporary SQLite database
+(`scripts/e2e_server.py`), in WebKit with an iPhone viewport for the capture flow and in Chromium
+for the service worker, offline and installability tests. They live in `web/e2e/` as `*.e2e.ts`,
+so Vitest does not collect them.
+
+**Alternatives.** Cypress (MIT): no WebKit, and the iPhone is the target. WebdriverIO (MIT) with
+real Safari: needs macOS runners and drives a desktop Safari, not an iPhone either.
+
+**Consequences.** Playwright's WebKit is the WebKit engine, not Safari on iOS: storage limits,
+Home Screen behavior and Safari's IndexedDB on the device are checked on Henry's iPhone (M4a
+Task 8). Service-worker behavior is tested in Chromium only.

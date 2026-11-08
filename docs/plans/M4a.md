@@ -393,6 +393,42 @@ Each task is one PR (D7).
 - Browsers: WebKit with an iPhone viewport for the flow; Chromium for the service-worker and
   offline tests (Playwright's service-worker support is fullest there). Emulation is not a real
   iPhone: Task 8 checks the device.
+- As implemented: `@playwright/test` 1.65.0 (ADR-0033); `web/playwright.config.ts` and
+  `web/e2e/` (`*.e2e.ts`, so Vitest leaves them alone; their own `tsconfig.e2e.json`, with the DOM
+  types for code run in the page). `scripts/e2e_server.py` migrates a fresh temporary SQLite
+  database and serves the API and `web/dist` with uvicorn on `127.0.0.1:8765`; Playwright starts
+  it and never reuses a server already on the port. One worker; each test makes its own venue,
+  session and hands. CI: a new workflow `E2E` (`.github/workflows/e2e.yml`) builds the Python
+  package with the Rust toolchain, the web app, installs Chromium and WebKit, runs `npm run e2e`
+  and keeps the report and traces of a failed run for 7 days. The tests:
+  - `flow.e2e.ts` (WebKit, iPhone 15 viewport) — AC3: the incomplete hand of the AC3 screen test
+    (villain cards unknown, villain stack ≈ 250) entered by tapping, saved, synced; the server's
+    copy is checked field by field (version 2, revision 1, board, result 19 to hero, the villain's
+    seat with no cards and an approximate stack).
+  - `no-analysis.e2e.ts` (WebKit and Chromium) — AC4: every capture route (home, new session,
+    session, settings, hand, needs attention, entry times) is opened; every request the page made
+    goes to the same server, the API ones only to `sync`, `venues`, `players`, `health`; the page
+    text contains none of a list of analysis words (EV, equity, strategy, solver, exploit, GTO,
+    VPIP, PFR, win rate, leak, mistake, decision point, score).
+  - `offline.e2e.ts` (Chromium) — AC2: with the service worker controlling the page, the network
+    is cut; a session is started and two hands are entered; the app is reloaded with no network
+    and shows both hands waiting; back online it syncs by itself; "Sync now" and a reload sync
+    again, and the server still holds the same two hands at revision 1. And the export: a hand
+    entered offline, exported, posted by the test to `/api/v1/sync` (venue, session and hand all
+    `created`); the phone, back online, syncs without storing anything twice.
+  - `install.e2e.ts` (Chromium) — AC5: the manifest's required fields and icons (each fetched),
+    an activated service worker with scope `/`, and Chrome's own verdict through the DevTools
+    protocol (`Page.getInstallabilityErrors`): no errors.
+
+  Found while writing them, all in the tests: a `<label>` around a `<select>` also holds the
+  options' text, so selects are found by role; `navigator.serviceWorker.ready` resolves while the
+  worker may still be activating; the record's board is `{flop, turn, river}`. Port 4173 (Vite's
+  preview port) was taken on the Mac by another program listening on IPv6 `localhost`, hence
+  8765 and `127.0.0.1`. Four faults planted in the app one at a time, each with a fresh build: a
+  capture screen fetching `/api/v1/sessions`, "EV" on the entry-times screen, manifest
+  `display: browser`, HTML left out of the precache — each made the matching tests fail. Locally
+  (macOS): 6 passed (5 tests, AC4 in both browsers), three runs in a row, about 14 s each. Not
+  covered: Safari on iOS itself, and service workers in WebKit (Task 8, on the iPhone).
 
 ### Task 8 — Running it for real
 
