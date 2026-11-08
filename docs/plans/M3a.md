@@ -1,7 +1,7 @@
 # M3a plan — Hand record format and storage (Python, no solver)
 
 Status: **accepted (2026-11-07)**; D1–D5 decided as recommended (§0.1). Acceptance criteria:
-`ROADMAP.md` → M3a. Progress: Tasks 1–3 merged; Task 4 in review.
+`ROADMAP.md` → M3a. Progress: Tasks 1–4 merged; Task 5: situation classes drafted in `MATH.md` §5.1, under discussion.
 
 M3a gives captured hands a durable, validated home that the phone (M4a) can sync into. Nothing in
 it calls the engine: every decision point is stored unscored, with the reason "engine not

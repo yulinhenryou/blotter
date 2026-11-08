@@ -1356,12 +1356,153 @@ results come from buy-in/cash-out, never from summing logged hands.
 
 ## 5. Leak detection [M5]
 
-### 5.1 Situation classes
+### 5.1 Situation classes [M3a: classifier v1, draft; M5: use in the model]
 
-A situation key: street, pot type (single-raised / 3-bet / …), position and in/out of position,
-line so far, SPR bucket, facing-bet-size bucket, board-texture class, hand class (value / bluff
-catcher / draw / air) relative to the range. Classes may be hierarchical (coarse → fine), which
-suggests a hierarchical model.
+> **Status: draft for discussion with Henry (M3a plan, D4).** Nothing here is final until Henry
+> has reviewed it; open choices are marked **[Decide together]**. The classifier is versioned
+> (`classifier_version = 1`), so changing a boundary later means recomputing the keys, not
+> migrating data.
+
+A **decision point** is every hero action other than a forced post (M3a plan §1.4). Its
+**situation key** describes what hero faced *before* acting — never the action hero took, which
+is what gets evaluated. Every key column below is computed from the canonical record alone (no
+ranges, no evaluator). Hand class relative to a range (value / bluff catcher / draw / air) needs
+ranges and comes in M3b.
+
+**Why classes are coarse and nested.** A live player logs few hands, and the leak model (§5.2)
+needs several decisions per class before it says anything. So the key is designed as three
+nested levels; the model pools each level toward the one above it (partial pooling), and a report
+can always fall back to a coarser level:
+
+| Level | Columns | Rough number of classes |
+|---|---|---|
+| 1 | street, spot | 14 (5 preflop, 3 on each later street) |
+| 2 | + pot type, players, position group or IP / OOP, initiative | many more, a lot of them rare |
+| 3 | + size bucket, depth bucket, texture | finer still; used only where data are dense |
+
+Other columns (position label, line, flags) are stored for filtering and display, not for
+pooling.
+
+#### Definitions
+
+Notation as in §1.5: $x_i$ chips committed on the current street, $B$ the current bet. At hero's
+decision: $P$ = all chips in the middle (antes, earlier streets and the current street's bets,
+after any uncalled bet from an earlier street is returned); $c = B - x_{\text{hero}}$ the amount
+hero must call; **in hand** = dealt in and not folded.
+
+1. **street** — `preflop`, `flop`, `turn`, `river`.
+
+2. **spot** — what hero is facing on this street. A *raise* here means a voluntary bet or raise;
+   blinds and straddles do not count.
+   - Preflop: `unopened` (no voluntary chips yet: hero may fold, limp or raise), `limped` (one or more seats
+     called the forced bet, nobody raised; includes the big blind's option), `facing_open`
+     (exactly one raise so far), `facing_3bet` (two), `facing_4bet_plus` (three or more).
+   - Flop, turn, river: `no_bet` (nobody has bet on this street yet; hero is first, or it was
+     checked to hero), `facing_bet` (one bet, no raise), `facing_raise` (at least one raise).
+
+   That makes 5 + 3 × 3 = 14 street × spot combinations (level 1); postflop `facing_raise` is
+   the rarest of them. **[Decide together]** whether postflop
+   `facing_raise` should split into "hero bet and was raised" and "hero faces bet and raise from
+   others".
+
+3. **pot type** — postflop only: the number of voluntary raises in the whole preflop round:
+   0 `limped`, 1 `single_raised`, 2 `3bet`, 3 or more `4bet_plus`. A pot nobody raised in which
+   only the blinds remain is `limped` too. Preflop the spot already says this.
+
+4. **players** — seats in hand at the decision, hero included: `heads_up` (2), `three_way` (3),
+   `four_plus`. The solver (M2) prices heads-up spots only; multiway decisions are stored and
+   classified all the same.
+
+5. **position label** — from the dealt-in seats and the button, never from seat numbers. The
+   button is `BTN`, the next two seats `SB` and `BB` (heads-up: the button is `BTN` and posts the
+   small blind; the other seat is `BB`). The remaining $k = n - 3$ seats, in preflop order of
+   action, are labelled from the end — `CO`, `HJ`, `LJ` — and the rest from the start — `UTG`,
+   `UTG+1`, `UTG+2`, `UTG+3`. Examples: 6 dealt in → `LJ HJ CO BTN SB BB`; 9 dealt in →
+   `UTG UTG+1 UTG+2 LJ HJ CO BTN SB BB`; 4 dealt in → `CO BTN SB BB`.
+   **Position group** (used for pooling): `early` (`UTG`…`UTG+3`), `middle` (`LJ`, `HJ`),
+   `late` (`CO`, `BTN`), `blinds` (`SB`, `BB`).
+   Straddles do not change labels; the hand carries a `straddled` flag instead.
+   **[Decide together]** the label names (6-max players often say `UTG` / `MP` for `LJ` / `HJ`),
+   the groups, and whether a straddled pot should be its own class rather than a flag.
+
+6. **in position** — postflop only: `ip` if hero is the last seat in hand to act on this street,
+   `oop` if hero is the first, `middle` otherwise (multiway only). Preflop the column is empty;
+   the position label carries that information.
+
+7. **initiative** — who made the last voluntary raise on the previous street: `hero`, `villain`,
+   or `none` (nobody raised there: a limped pot on the flop, or a street checked through).
+   Preflop the column is empty. This is what "c-bet" and "donk bet" spots are made of: flop,
+   `no_bet`, initiative `hero` is a continuation-bet decision.
+
+8. **depth bucket** — how deep the money is.
+   - Effective stack $E$: the smaller of hero's chips behind and the largest chips behind among
+     the other seats in hand, measured at the start of the street.
+   - Postflop: stack-to-pot ratio $\text{SPR} = E / P_0$, with $P_0$ the pot at the start of the
+     street. Buckets: `spr_lt_2` ($< 2$, close to committed), `spr_2_4`, `spr_4_8`,
+     `spr_8_plus`.
+   - Preflop: $E$ in big blinds, at the start of the hand. Buckets: `bb_lt_40`, `bb_40_100`,
+     `bb_100_200`, `bb_200_plus` (live games often play deep).
+   - If a stack needed for $E$ is unknown (`null` in the record), the bucket is `unknown`. An
+     approximate stack still gets a bucket; the hand's `stacks_approximate` flag says so.
+   - **[Decide together]** the boundaries. Lower bounds are inclusive, so SPR exactly 4 is
+     `spr_4_8`.
+
+9. **size bucket** — only when hero faces a bet ($c > 0$); empty otherwise.
+   - Postflop: $f = c / (P - c)$. For a single bet $b$ into a pot $p$ this is $b / p$, the usual
+     "fraction of the pot"; facing a raise it is the extra chips hero must add, relative to the
+     pot if hero had matched the earlier bet. It fixes the price: hero needs equity
+     $c / (P + c) = f / (1 + 2f)$ to call. Buckets: `small` ($f < 0.4$), `medium`
+     ($0.4 \le f < 0.8$), `large` ($0.8 \le f < 1.25$), `overbet` ($f \ge 1.25$).
+   - Preflop: the multiple $m = B / B_{\text{prev}}$ of the last raise, where $B_{\text{prev}}$ is
+     the bet it raised (the big blind or last straddle for an open). Buckets: `lt_2_5x`,
+     `2_5x_3_5x`, `3_5x_5x`, `5x_plus`. Facing only limps, the column is empty.
+   - A flag `facing_all_in` is stored when the bet hero faces puts a seat all-in.
+   - **[Decide together]** the boundaries, and whether preflop opens in live games (often 5× or
+     more) need finer buckets.
+
+10. **texture** — from the board's ranks and suits only; empty preflop. Components:
+    - suits on the board: `rainbow` (no two cards share a suit), `two_tone` (some suit appears
+      twice, none three times), `flush_possible` (some suit three or more times; on the flop this
+      is a monotone board);
+    - pairing: `unpaired`, `paired` (one rank twice, no other repeat), `heavily_paired` (two
+      pairs, trips or more on the board);
+    - high card: `ace`, `broadway` (K, Q, J), `ten_or_lower`;
+    - connected: some window of five consecutive ranks (the ace counts low and high) holds three
+      or more distinct board ranks — then two hole cards can make a straight.
+
+    Texture class (used for pooling), the first that applies: `paired`, `flush_possible`,
+    `connected`, `two_tone`, `dry`. Turn and river add **the new card**, the first that applies:
+    `pairs_board` (its rank was already on the board), `completes_flush` (third card of a suit),
+    `completes_straight` (the board becomes connected), `overcard` (higher than every earlier
+    board card), `blank`. **[Decide together]** the classes and their order of priority.
+
+11. **line** — the betting so far, compact, for display and filtering. Per street, one letter per
+    action: `X` check, `B` bet, `R` raise, `C` call, `F` fold; hero's actions in lower case;
+    streets separated by `/`. Posts are left out, and so are preflop folds by seats that never put
+    voluntary chips in (the same seats a client may leave out, `ARCHITECTURE.md` §7.3). The
+    current street ends just before hero's decision.
+
+#### Worked example
+
+Live 1/3, nine dealt in, all stacks 300 at the start. UTG opens to 15, everyone folds to hero on
+the button, hero calls, the small blind folds, the big blind calls. Flop K♠7♦2♣: the big blind
+checks, UTG bets 30, and hero decides.
+
+| Column | Value | Why |
+|---|---|---|
+| street, spot | flop, `facing_bet` | one bet on the flop, no raise |
+| pot type | `single_raised` | one raise preflop |
+| players | `three_way` | BB, UTG, hero |
+| position label / group | `BTN` / `late` | |
+| in position | `ip` | hero acts last on the flop |
+| initiative | `villain` | UTG made the last preflop raise |
+| depth | `spr_4_8` | $P_0 = 3 \cdot 15 + 1 = 46$ (the small blind's 1 is dead), $E = 285$, SPR $= 6.2$ |
+| size | `medium` | $c = 30$, $P = 76$, $f = 30 / 46 = 0.65$ |
+| texture | `dry` | rainbow, unpaired, K high, no window of five holds three of K, 7, 2 |
+| line | `RcC/XB` | preflop UTG raise, hero call, BB call (folds by never-in seats and the SB's fold after posting left out); flop BB check, UTG bet |
+
+**[Decide together]** whether the SB's fold belongs in the line: it posted, but put no chips in
+voluntarily. The draft leaves it out, like other folds without voluntary chips.
 
 ### 5.2 Model for EV loss
 
