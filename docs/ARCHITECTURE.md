@@ -329,7 +329,8 @@ players ─┐                         venues
          └── opponent_observations
 ```
 
-Tables marked *(M3a)* exist (migration `0001`, `review.storage.models`); the others are drafts.
+Tables marked *(M3a)* exist (migrations `0001` and `0002`, `review.storage.models`); the others
+are drafts.
 Every table that the phone syncs has a `revision` column (sync semantics: M3a plan, D3).
 A hand is stored as its canonical record (§7.3) in `hands`, `hand_seats` and `actions`, and nothing
 else; `review.storage.repository` maps it both ways and applies the revision rules.
@@ -342,7 +343,7 @@ else; `review.storage.repository` maps it both ways and applies the revision rul
 | `hands` *(M3a)* | id, revision, session_id, client_seq (unique per session), schema_version, played_at, record_reason, source (`manual`/`import`), table_size, button_seat, hero_seat, small_blind_chips, big_blind_chips, straddles_chips (JSON list), ante_kind, ante_chips, board_flop (`"Ks7d2c"`), board_turn, board_river; derived: rake_chips, hero_net_chips, villain_cards_unknown, stacks_approximate, amounts_approximate |
 | `hand_seats` *(M3a)* | hand_id, seat, player_id (nullable), starting_stack_chips, stack_approximate, hole_cards (`"AsKd"`, nullable), showed, won_chips. One row per dealt-in seat |
 | `actions` *(M3a)* | hand_id, seq, street, seat (→ `hand_seats`), kind (`post_ante`/`post_small_blind`/`post_big_blind`/`post_straddle`/`fold`/`check`/`call`/`bet`/`raise`), amount_to_chips (total on this street), ante_chips, all_in, amount_approximate |
-| `decision_points` | id, hand_id, action_seq, street, situation key columns (pot_type, hero_position, in_position, line, spr_bucket, facing_size_bucket, texture_class), scorable (bool), unscored_reason |
+| `decision_points` *(M3a)* | hand_id, action_seq (→ `actions`), classifier_version; situation key (`MATH.md` §5.1, plain text): street, spot, pot_type, players, position_label, position_group, in_position, initiative, depth, size, facing_all_in, board_suits, board_pairing, board_high_card, board_connected, texture_class, new_card, line, straddled; scorable (bool), unscored_reason. Derived from the hand by `review.ledger` and rewritten with it |
 | `solves` | id, spec_hash (unique), spec (JSON), engine_version, algorithm, iterations, exploitability_pct_pot, status, created_at, result_blob_ref |
 | `evaluations` | id, decision_point_id, solve_id, reference (`equilibrium`/`opponent_model`), hero_combo, chosen_action, best_action, ev_loss_bb, noise_floor_bb, robust_to_ranges (nullable bool) |
 | `evaluation_actions` | evaluation_id, action_label, size_pct_pot, ev_bb, equilibrium_frequency |

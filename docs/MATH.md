@@ -1356,12 +1356,12 @@ results come from buy-in/cash-out, never from summing logged hands.
 
 ## 5. Leak detection [M5]
 
-### 5.1 Situation classes [M3a: classifier v1, draft; M5: use in the model]
+### 5.1 Situation classes [M3a: classifier v1; M5: use in the model]
 
-> **Status: draft for discussion with Henry (M3a plan, D4).** Nothing here is final until Henry
-> has reviewed it; open choices are marked **[Decide together]**. The classifier is versioned
-> (`classifier_version = 1`), so changing a boundary later means recomputing the keys, not
-> migrating data.
+> **Status: accepted by Henry on 2026-11-08, as drafted (M3a plan, D4).** Implemented in
+> `review.ledger.situations` as `classifier_version = 1`. The key columns are stored as plain text
+> (no database enum or check constraint), so a later version that changes a boundary or a class
+> means recomputing the keys, not migrating the schema.
 
 A **decision point** is every hero action other than a forced post (M3a plan §1.4). Its
 **situation key** describes what hero faced *before* acting — never the action hero took, which
@@ -1401,9 +1401,8 @@ hero must call; **in hand** = dealt in and not folded.
      checked to hero), `facing_bet` (one bet, no raise), `facing_raise` (at least one raise).
 
    That makes 5 + 3 × 3 = 14 street × spot combinations (level 1); postflop `facing_raise` is
-   the rarest of them. **[Decide together]** whether postflop
-   `facing_raise` should split into "hero bet and was raised" and "hero faces bet and raise from
-   others".
+   the rarest of them. It is not split into "hero bet and was raised" and "a bet and a raise by
+   others" (decided 2026-11-08); the line tells the two apart.
 
 3. **pot type** — postflop only: the number of voluntary raises in the whole preflop round:
    0 `limped`, 1 `single_raised`, 2 `3bet`, 3 or more `4bet_plus`. A pot nobody raised in which
@@ -1422,32 +1421,38 @@ hero must call; **in hand** = dealt in and not folded.
    **Position group** (used for pooling): `early` (`UTG`…`UTG+3`), `middle` (`LJ`, `HJ`),
    `late` (`CO`, `BTN`), `blinds` (`SB`, `BB`).
    Straddles do not change labels; the hand carries a `straddled` flag instead.
-   **[Decide together]** the label names (6-max players often say `UTG` / `MP` for `LJ` / `HJ`),
-   the groups, and whether a straddled pot should be its own class rather than a flag.
+   These labels and groups, and a flag rather than a class for straddled pots, were accepted on
+   2026-11-08 (6-max players often say `UTG` / `MP` for `LJ` / `HJ`).
 
-6. **in position** — postflop only: `ip` if hero is the last seat in hand to act on this street,
+6. **in position** — postflop only: `ip` if hero is the last seat in hand (not folded; all-in
+   seats included) in the postflop order of action,
    `oop` if hero is the first, `middle` otherwise (multiway only). Preflop the column is empty;
    the position label carries that information.
 
-7. **initiative** — who made the last voluntary raise on the previous street: `hero`, `villain`,
-   or `none` (nobody raised there: a limped pot on the flop, or a street checked through).
+7. **initiative** — who made the last voluntary bet or raise on the previous street: `hero`,
+   `villain`, or `none` (nobody bet or raised there: a limped pot on the flop, or a street
+   checked through).
    Preflop the column is empty. This is what "c-bet" and "donk bet" spots are made of: flop,
    `no_bet`, initiative `hero` is a continuation-bet decision.
 
 8. **depth bucket** — how deep the money is.
    - Effective stack $E$: the smaller of hero's chips behind and the largest chips behind among
-     the other seats in hand, measured at the start of the street.
+     the other seats in hand at the decision, measured at the start of the street (preflop: at
+     the start of the hand, before antes and blinds).
    - Postflop: stack-to-pot ratio $\text{SPR} = E / P_0$, with $P_0$ the pot at the start of the
      street. Buckets: `spr_lt_2` ($< 2$, close to committed), `spr_2_4`, `spr_4_8`,
      `spr_8_plus`.
    - Preflop: $E$ in big blinds, at the start of the hand. Buckets: `bb_lt_40`, `bb_40_100`,
      `bb_100_200`, `bb_200_plus` (live games often play deep).
-   - If a stack needed for $E$ is unknown (`null` in the record), the bucket is `unknown`. An
-     approximate stack still gets a bucket; the hand's `stacks_approximate` flag says so.
-   - **[Decide together]** the boundaries. Lower bounds are inclusive, so SPR exactly 4 is
-     `spr_4_8`.
+   - If a stack needed for $E$ is unknown (`null` in the record), the bucket is `unknown` —
+     except when hero's own stack is known and no larger than some known stack among the others:
+     then $E$ is hero's stack whatever the unknown ones are. An approximate stack still gets a
+     bucket; the hand's `stacks_approximate` flag says so.
+   - Lower bounds are inclusive, so SPR exactly 4 is `spr_4_8`. Boundaries accepted on
+     2026-11-08.
 
-9. **size bucket** — only when hero faces a bet ($c > 0$); empty otherwise.
+9. **size bucket** — postflop only when hero faces a bet ($c > 0$), preflop only when someone
+   has raised; empty otherwise.
    - Postflop: $f = c / (P - c)$. For a single bet $b$ into a pot $p$ this is $b / p$, the usual
      "fraction of the pot"; facing a raise it is the extra chips hero must add, relative to the
      pot if hero had matched the earlier bet. It fixes the price: hero needs equity
@@ -1456,9 +1461,9 @@ hero must call; **in hand** = dealt in and not folded.
    - Preflop: the multiple $m = B / B_{\text{prev}}$ of the last raise, where $B_{\text{prev}}$ is
      the bet it raised (the big blind or last straddle for an open). Buckets: `lt_2_5x`,
      `2_5x_3_5x`, `3_5x_5x`, `5x_plus`. Facing only limps, the column is empty.
-   - A flag `facing_all_in` is stored when the bet hero faces puts a seat all-in.
-   - **[Decide together]** the boundaries, and whether preflop opens in live games (often 5× or
-     more) need finer buckets.
+   - A flag `facing_all_in` is stored when the last voluntary bet or raise on this street put
+     its seat all-in.
+   - Boundaries accepted on 2026-11-08, with a single `5x_plus` bucket for large live opens.
 
 10. **texture** — from the board's ranks and suits only; empty preflop. Components:
     - suits on the board: `rainbow` (no two cards share a suit), `two_tone` (some suit appears
@@ -1470,11 +1475,12 @@ hero must call; **in hand** = dealt in and not folded.
     - connected: some window of five consecutive ranks (the ace counts low and high) holds three
       or more distinct board ranks — then two hole cards can make a straight.
 
-    Texture class (used for pooling), the first that applies: `paired`, `flush_possible`,
+    Texture class (used for pooling), the first that applies: `paired` (pairing is `paired` or
+    `heavily_paired`), `flush_possible`,
     `connected`, `two_tone`, `dry`. Turn and river add **the new card**, the first that applies:
     `pairs_board` (its rank was already on the board), `completes_flush` (third card of a suit),
     `completes_straight` (the board becomes connected), `overcard` (higher than every earlier
-    board card), `blank`. **[Decide together]** the classes and their order of priority.
+    board card), `blank`. Classes and order accepted on 2026-11-08.
 
 11. **line** — the betting so far, compact, for display and filtering. Per street, one letter per
     action: `X` check, `B` bet, `R` raise, `C` call, `F` fold; hero's actions in lower case;
@@ -1501,8 +1507,8 @@ checks, UTG bets 30, and hero decides.
 | texture | `dry` | rainbow, unpaired, K high, no window of five holds three of K, 7, 2 |
 | line | `RcC/XB` | preflop UTG raise, hero call, BB call (folds by never-in seats and the SB's fold after posting left out); flop BB check, UTG bet |
 
-**[Decide together]** whether the SB's fold belongs in the line: it posted, but put no chips in
-voluntarily. The draft leaves it out, like other folds without voluntary chips.
+Decided on 2026-11-08: the small blind's fold is left out of the line. It posted, but put no
+chips in voluntarily, like the other folds left out.
 
 ### 5.2 Model for EV loss
 

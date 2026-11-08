@@ -190,3 +190,48 @@ class HandAction(Base):
     ante_chips: Mapped[int | None]
     all_in: Mapped[bool]
     amount_approximate: Mapped[bool]
+
+
+class DecisionPointRow(Base):
+    """One hero decision and its situation key (``docs/MATH.md`` §5.1).
+
+    Derived from the hand by ``review.ledger``; rewritten whenever the hand is. The key columns
+    are plain text without a check constraint, so a new classifier version needs no migration.
+    """
+
+    __tablename__ = "decision_points"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["hand_id", "action_seq"],
+            ["actions.hand_id", "actions.seq"],
+            ondelete="CASCADE",
+        ),
+    )
+
+    hand_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("hands.id", ondelete="CASCADE"), primary_key=True
+    )
+    action_seq: Mapped[int] = mapped_column(primary_key=True)
+    classifier_version: Mapped[int]
+    street: Mapped[str] = mapped_column(String(16))
+    spot: Mapped[str] = mapped_column(String(32))
+    pot_type: Mapped[str | None] = mapped_column(String(32))
+    players: Mapped[str] = mapped_column(String(32))
+    position_label: Mapped[str] = mapped_column(String(8))
+    position_group: Mapped[str] = mapped_column(String(16))
+    in_position: Mapped[str | None] = mapped_column(String(16))
+    initiative: Mapped[str | None] = mapped_column(String(16))
+    depth: Mapped[str] = mapped_column(String(32))
+    size: Mapped[str | None] = mapped_column(String(32))
+    facing_all_in: Mapped[bool]
+    board_suits: Mapped[str | None] = mapped_column(String(32))
+    board_pairing: Mapped[str | None] = mapped_column(String(32))
+    board_high_card: Mapped[str | None] = mapped_column(String(32))
+    board_connected: Mapped[bool | None]
+    texture_class: Mapped[str | None] = mapped_column(String(32))
+    new_card: Mapped[str | None] = mapped_column(String(32))
+    line: Mapped[str] = mapped_column(Text)
+    straddled: Mapped[bool]
+    # Filled in by the evaluator (M3b); until then every decision is unscored.
+    scorable: Mapped[bool]
+    unscored_reason: Mapped[str | None] = mapped_column(String(64))
