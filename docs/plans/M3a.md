@@ -1,7 +1,7 @@
 # M3a plan — Hand record format and storage (Python, no solver)
 
 Status: **accepted (2026-11-07)**; D1–D5 decided as recommended (§0.1). Acceptance criteria:
-`ROADMAP.md` → M3a. Progress: Tasks 1–4 merged; Task 5 in review.
+`ROADMAP.md` → M3a. Progress: Tasks 1–5 merged; Task 6 in review.
 
 M3a gives captured hands a durable, validated home that the phone (M4a) can sync into. Nothing in
 it calls the engine: every decision point is stored unscored, with the reason "engine not
@@ -302,6 +302,21 @@ Each task is one PR (D5). "Rules" or "Math" is worked out in the session before 
 - Tests: AC3 — the same batch synced twice creates no duplicates and the second response reports
   every item as unchanged; conflicts are reported per item; validation errors come back with the
   field paths of Task 2; a batch with an invalid hand still applies its valid items.
+- As implemented: D3 is ADR-0026. Venues, players and sessions have their own models
+  (`domain/entities.py`) and save functions with the same revision rules as hands; every save
+  first checks references (a hand's session and players, a session's venue) and a session's
+  `client_seq`, so these come back as field-level issues rather than database errors. The batch
+  model validates each item alone (a wrap validator), keeps the valid ones and remembers the
+  others as `invalid` results, so the OpenAPI schema still describes typed lists. Each item is
+  saved in its own transaction, in the order venues, players, sessions, hands. Hands are sent as
+  entered and stored in canonical form. `create_app` takes an engine (tests) or creates one from
+  `DATABASE_URL` on first use, so building the app and exporting the schema need no database.
+  Tests on both backends: AC3 as a property (random batches of dealt hands with their sessions
+  and players, synced twice), conflicts per item, replace and stale revision, checker and model
+  errors with field paths in a mixed batch, references, duplicate `client_seq`, malformed
+  batches (422), invalid venues and sessions, and every read endpoint including 404s; revision
+  rules for venues, players and sessions in the repository tests. Eleven injected faults in sync,
+  reads and the entity saves were each caught.
 
 ### Task 7 — Closing M3a
 

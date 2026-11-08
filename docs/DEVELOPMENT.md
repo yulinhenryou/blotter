@@ -136,12 +136,16 @@ uv run --project python --group plots python scripts/plot_leduc_convergence.py d
 Two terminals:
 
 ```bash
-cd python && uv run uvicorn --factory review.api.app:create_app --reload --port 8000
+cd python && DATABASE_URL=sqlite:///data/hands.db uv run uvicorn --factory review.api.app:create_app --reload --port 8000
 ```
 
 ```bash
 cd web && npm run dev
 ```
+
+The database must be migrated first (see Database). Without `DATABASE_URL` the app still starts
+and serves `/api/v1/health`; the sync and read endpoints then fail with an error naming the
+variable.
 
 Open <http://localhost:5173>. The Vite dev server proxies `/api` to port 8000. The page shows the
 engine version reported by the Rust crates through the API.
