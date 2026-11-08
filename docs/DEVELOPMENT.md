@@ -105,7 +105,7 @@ The API and the migrations read the SQLAlchemy URL from `DATABASE_URL`, for exam
 
 ```bash
 DATABASE_URL=sqlite:///data/hands.db uv run alembic upgrade head   # create or migrate
-uv run alembic revision --autogenerate --rev-id 0003 -m "what changes"  # next migration
+uv run alembic revision --autogenerate --rev-id 0004 -m "what changes"  # next migration
 ```
 
 A new migration is generated against a database migrated to the previous head, then reviewed by

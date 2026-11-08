@@ -8,7 +8,7 @@ exactly there; and making the record incomplete changes nothing but the depth bu
 import random
 
 import pytest
-from dealer import Notes, deal
+from dealer import Notes, deal, deal_any
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -17,7 +17,7 @@ from review.domain.record import POSTS, Street
 from review.ledger import decision_points
 from review.ledger.situations import Depth, Spot
 
-hands = st.randoms(use_true_random=False).map(deal)
+hands = st.randoms(use_true_random=False).map(deal_any)
 
 
 def canonical(hand: HandRecord) -> HandRecord:

@@ -316,7 +316,7 @@
       },
       "HandRecord": {
         "additionalProperties": false,
-        "description": "One hand, as captured or as stored.\n\nThe fields ``completeness``, ``rake_chips`` and ``hero_net_chips`` are derived: they are\nignored on input and filled in by :func:`review.domain.check.check`.",
+        "description": "One hand, as captured or as stored.\n\nThe fields ``completeness``, ``rake_chips`` and ``hero_net_chips`` are derived: they are\nignored on input and filled in by :func:`review.domain.check.check`. ``rake_chips`` stays\n``None`` for a hand that ends at hero's fold, where the rake is not known.",
         "properties": {
           "actions": {
             "default": [],
@@ -359,6 +359,11 @@
             },
             "title": "Dealt In Seats",
             "type": "array"
+          },
+          "ends_at_hero_fold": {
+            "default": false,
+            "title": "Ends At Hero Fold",
+            "type": "boolean"
           },
           "hero_net_chips": {
             "anyOf": [
@@ -424,8 +429,11 @@
             "type": "integer"
           },
           "schema_version": {
-            "const": 1,
-            "default": 1,
+            "default": 2,
+            "enum": [
+              1,
+              2
+            ],
             "title": "Schema Version",
             "type": "integer"
           },

@@ -7,7 +7,9 @@ exact: :func:`load_hand` after :func:`save_hand` returns a record equal to the o
 
 - the canonical record lists every dealt-in seat, so ``dealt_in_seats`` is the set of
   ``hand_seats`` rows, and a seat's entry in ``results`` is its ``won_chips`` when that is above
-  zero (canonical results are sorted by seat and never hold zero);
+  zero (canonical results are sorted by seat and never hold zero). In a hand that ends at hero's
+  fold (record version 2) hero won 0 and the other seats' ``won_chips`` are ``NULL``: unknown,
+  not zero;
 - ``played_at`` comes back in UTC. It is the same instant, and aware datetimes compare equal
   across time zones, so the record is equal; only its ``tzinfo`` may differ.
 
@@ -233,6 +235,7 @@ def load_hand(db: OrmSession, hand_id: uuid.UUID) -> HandRecord | None:
             )
             for a in actions
         ),
+        ends_at_hero_fold=hand.ends_at_hero_fold,
         results=tuple(Result(seat=s.seat, won_chips=s.won_chips) for s in seats if s.won_chips),
         completeness=Completeness(
             villain_cards_unknown=hand.villain_cards_unknown,
@@ -250,7 +253,7 @@ def load_hand(db: OrmSession, hand_id: uuid.UUID) -> HandRecord | None:
 def _hand_row(r: HandRecord) -> dict[str, Any]:
     # Canonical records always carry the derived fields; check() above guarantees it.
     assert r.completeness is not None
-    assert r.rake_chips is not None
+    assert (r.rake_chips is None) == r.ends_at_hero_fold
     assert r.hero_net_chips is not None
     ante = r.stakes.ante
     return {
@@ -273,6 +276,7 @@ def _hand_row(r: HandRecord) -> dict[str, Any]:
         "board_flop": "".join(r.board.flop) if r.board.flop else None,
         "board_turn": r.board.turn,
         "board_river": r.board.river,
+        "ends_at_hero_fold": r.ends_at_hero_fold,
         "rake_chips": r.rake_chips,
         "hero_net_chips": r.hero_net_chips,
         "villain_cards_unknown": r.completeness.villain_cards_unknown,
@@ -282,7 +286,9 @@ def _hand_row(r: HandRecord) -> dict[str, Any]:
 
 
 def _insert_children(db: OrmSession, r: HandRecord) -> None:
-    won = {res.seat: res.won_chips for res in r.results}
+    won: dict[int, int | None] = {res.seat: res.won_chips for res in r.results}
+    if r.ends_at_hero_fold:
+        won = {e.seat: None for e in r.seats} | {r.hero_seat: 0}
     seat_rows = [
         {
             "hand_id": r.id,
@@ -449,9 +455,11 @@ def _three_cards(text: str | None) -> tuple[Card, Card, Card] | None:
     return None if text is None else (text[0:2], text[2:4], text[4:6])
 
 
-def _schema_version(value: int) -> Literal[1]:
+def _schema_version(value: int) -> Literal[2]:
     if value != SCHEMA_VERSION:
-        raise ValueError(f"stored hand has schema version {value}; this code reads only 1")
+        raise ValueError(
+            f"stored hand has schema version {value}; this code reads {SCHEMA_VERSION}"
+        )
     return SCHEMA_VERSION
 
 

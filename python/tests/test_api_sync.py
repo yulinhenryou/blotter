@@ -13,7 +13,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from dealer import deal
+from dealer import deal, deal_any
 from fastapi.testclient import TestClient
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
@@ -113,7 +113,7 @@ def _dealt(seed: int) -> HandRecord:
 
 # --- AC3 ---------------------------------------------------------------------------------------
 
-hand_lists = st.lists(st.randoms(use_true_random=False).map(lambda r: deal(r)[0]), max_size=4)
+hand_lists = st.lists(st.randoms(use_true_random=False).map(lambda r: deal_any(r)[0]), max_size=4)
 
 
 @shared_db

@@ -25,6 +25,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     Uuid,
+    false,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -136,8 +137,10 @@ class Hand(Base):
     board_flop: Mapped[str | None] = mapped_column(String(6))  # e.g. "Ks7d2c"
     board_turn: Mapped[str | None] = mapped_column(String(2))
     board_river: Mapped[str | None] = mapped_column(String(2))
+    # Record version 2 (ADR-0030): the hand stops at hero's fold; no results, rake unknown.
+    ends_at_hero_fold: Mapped[bool] = mapped_column(server_default=false())
     # Derived by review.domain.check; stored because analysis filters on them.
-    rake_chips: Mapped[int]
+    rake_chips: Mapped[int | None]  # None when ends_at_hero_fold
     hero_net_chips: Mapped[int]
     villain_cards_unknown: Mapped[bool]
     stacks_approximate: Mapped[bool]
@@ -158,7 +161,8 @@ class HandSeat(Base):
     stack_approximate: Mapped[bool]
     hole_cards: Mapped[str | None] = mapped_column(String(4))  # e.g. "AsKd"
     showed: Mapped[bool]
-    won_chips: Mapped[int]
+    # None when the hand ends at hero's fold and this seat is not hero: what it won is unknown.
+    won_chips: Mapped[int | None]
 
 
 class HandAction(Base):

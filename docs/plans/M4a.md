@@ -209,6 +209,22 @@ Each task is one PR (D7).
   decision points, sync twice) run on such hands too; rejections with field paths (an action after
   hero's fold, a results entry, a later board card, the flag without hero folding last); migration
   step tests 0002 ↔ 0003 on both backends. Injected faults, as in M3a.
+- As implemented: `HandRecord` takes `schema_version` 1 or 2 and the canonical form is always 2
+  (a version 1 record is a version 2 record without the flag). The checker reports the four ways
+  the flag can be wrong — results given (`results[0]`), an action after hero's fold, hero never
+  folding, version 1 — and replays only up to hero's fold; hero's net is minus hero's total, the
+  rake `None`, the pots empty. Storage: `hands.ends_at_hero_fold` (default false),
+  `hands.rake_chips` nullable, and `hand_seats.won_chips` nullable: in such a hand hero's row holds
+  0 and the others `NULL` (unknown, not zero). Migration `0003` sets stored hands to version 2 and
+  refuses to downgrade while a hand ends at hero's fold. The migration environment now disposes of
+  its engine when a migration fails (the refused downgrade left a connection open). Tests: the
+  dealer can make hero one of the folders and cut the hand there (`end_at_hero_fold`); such hands
+  are three in ten of the hands in the AC1, AC3, AC4 and AC5 properties of M3a, and their hero net
+  must equal the dealer's accounting of the whole hand; two hand-computed fixtures (`MATH.md`
+  §1.5 Example 4 cut at hero's fold; the §5.1 example cut at a flop fold); rejections with field
+  paths for each misuse; migration tests for the step, the version update and the refused
+  downgrade. Fourteen injected faults: thirteen caught at first; the missed one (other seats'
+  winnings stored as 0 instead of `NULL`) is caught by a test added for it.
 
 ### Task 3 — Foundations: shell, routing, tokens, PWA
 

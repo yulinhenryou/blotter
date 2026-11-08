@@ -1,17 +1,18 @@
 """M3a acceptance criterion 2: migrations apply cleanly from empty on SQLite and PostgreSQL, and a
-downgrade/upgrade cycle works. Also the storage set-up both backends rely on."""
+downgrade/upgrade cycle works. Also the storage set-up both backends rely on, and the data steps
+of migration 0003 (record version 2, ADR-0030)."""
 
 import uuid
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import Uuid, bindparam, inspect, select, text
+from sqlalchemy import Uuid, bindparam, insert, inspect, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as OrmSession
 
 from review.storage import migrate
 from review.storage.db import make_engine
-from review.storage.models import Base, HandSeat, Session
+from review.storage.models import Base, Hand, HandSeat, Session
 
 TABLES_0001 = {"venues", "players", "sessions", "hands", "hand_seats", "actions"}
 TABLES = TABLES_0001 | {"decision_points"}  # 0002
@@ -44,8 +45,79 @@ def test_migrations_go_up_and_down_one_step_at_a_time(database_url: str) -> None
     assert tables(database_url) == TABLES_0001 | {"alembic_version"}
     migrate.upgrade(database_url, "0002")
     assert tables(database_url) == TABLES | {"alembic_version"}
+    migrate.upgrade(database_url, "0003")
+    assert tables(database_url) == TABLES | {"alembic_version"}
+    migrate.downgrade(database_url, "0002")
     migrate.downgrade(database_url, "0001")
     assert tables(database_url) == TABLES_0001 | {"alembic_version"}
+
+
+def _store_a_version_1_hand(database_url: str) -> uuid.UUID:
+    """Insert, at migration 0002, the rows of a hand as version 1 stored them."""
+    migrate.upgrade(database_url, "0002")
+    engine = make_engine(database_url)
+    session_id, hand_id = uuid.uuid7(), uuid.uuid7()
+    with OrmSession(engine) as db, db.begin():
+        db.add(
+            Session(
+                id=session_id,
+                started_at=datetime(2026, 11, 7, 21, 0, tzinfo=UTC),
+                small_blind_chips=1,
+                big_blind_chips=2,
+            )
+        )
+        db.flush()
+        # Core insert of the 0002 columns only: the model already has the 0003 column.
+        db.execute(
+            insert(Hand).values(
+                id=hand_id,
+                revision=1,
+                session_id=session_id,
+                client_seq=0,
+                schema_version=1,
+                record_reason="notable",
+                source="manual",
+                table_size=2,
+                button_seat=1,
+                hero_seat=1,
+                small_blind_chips=1,
+                big_blind_chips=2,
+                straddles_chips=[],
+                rake_chips=0,
+                hero_net_chips=-1,
+                villain_cards_unknown=False,
+                stacks_approximate=False,
+                amounts_approximate=False,
+            )
+        )
+    engine.dispose()
+    return hand_id
+
+
+def test_stored_hands_become_version_2(database_url: str) -> None:
+    hand_id = _store_a_version_1_hand(database_url)
+    migrate.upgrade(database_url, "0003")
+    engine = make_engine(database_url)
+    with OrmSession(engine) as db:
+        row = db.execute(
+            select(Hand.schema_version, Hand.ends_at_hero_fold).where(Hand.id == hand_id)
+        ).one()
+    engine.dispose()
+    assert tuple(row) == (2, False)
+    migrate.downgrade(database_url, "0002")  # no hand needs version 2: allowed
+
+
+def test_downgrade_is_refused_while_a_hand_ends_at_hero_fold(database_url: str) -> None:
+    hand_id = _store_a_version_1_hand(database_url)
+    migrate.upgrade(database_url, "0003")
+    engine = make_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            update(Hand).where(Hand.id == hand_id).values(ends_at_hero_fold=True, rake_chips=None)
+        )
+    engine.dispose()
+    with pytest.raises(RuntimeError, match="end at hero's fold"):
+        migrate.downgrade(database_url, "0002")
 
 
 def test_models_and_migrations_agree(database_url: str) -> None:
