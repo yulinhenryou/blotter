@@ -4,7 +4,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 
-import { openStore, type Store } from '../store/db.ts'
+import { openStore, requestPersistence, type Persistence, type Store } from '../store/db.ts'
 import { cryptoUniform } from '../store/samples.ts'
 import { httpTransport, type SyncReport, type Transport } from '../sync/sync.ts'
 
@@ -14,6 +14,8 @@ export interface CaptureDeps {
   readonly now: () => Date
   /** Uniform draws in [0, 1) for the random-sample times. */
   readonly uniform: () => number
+  /** Ask the browser to keep the store (`navigator.storage.persist()`). */
+  readonly persist: () => Promise<Persistence>
 }
 
 export const defaultDeps: CaptureDeps = {
@@ -21,6 +23,7 @@ export const defaultDeps: CaptureDeps = {
   transport: httpTransport,
   now: () => new Date(),
   uniform: cryptoUniform,
+  persist: requestPersistence,
 }
 
 export interface Capture {
@@ -34,6 +37,8 @@ export interface Capture {
   readonly sync: () => Promise<SyncReport>
   readonly report: SyncReport | null
   readonly syncing: boolean
+  /** The browser's answer to "keep this app's storage"; `null` until it answers. */
+  readonly storage: Persistence | null
 }
 
 export const CaptureContext = createContext<Capture | null>(null)

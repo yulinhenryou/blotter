@@ -202,3 +202,55 @@ image):
 ```bash
 python3 scripts/make_icons.py
 ```
+
+## Use on the phone
+
+The server runs on the Mac and the iPhone reaches it through Tailscale (ADR-0027). Nothing listens
+on the local network or the internet: the app binds to `127.0.0.1`, and `tailscale serve` gives
+the Mac an HTTPS address that only devices in Henry's tailnet can open. The tailnet must hold only
+Henry's own devices: membership is the only access control.
+
+### Once
+
+1. **Tailscale on the Mac.** Install it (Mac App Store or the standalone download from
+   tailscale.com) and sign in. The command-line tool: the App Store version has it at
+   `/Applications/Tailscale.app/Contents/MacOS/Tailscale`; the standalone version installs
+   `/usr/local/bin/tailscale` from Settings → CLI integration.
+2. **Tailscale on the iPhone.** Install it from the App Store and sign in with the same account.
+3. **Start the server** (see below), then publish it to the tailnet; this setting survives
+   reboots until it is turned off:
+
+   ```bash
+   tailscale serve --bg --https=443 http://127.0.0.1:8000
+   ```
+
+   `tailscale serve status` shows the address, `https://<mac-name>.<tailnet>.ts.net/`. If the
+   tailnet does not have HTTPS certificates enabled yet, the command says so and prints the link
+   to enable them in the admin console. To stop publishing: `tailscale serve --https=443 off`.
+4. **Install the app on the iPhone.** With Tailscale connected, open the address in Safari, then
+   Share → Add to Home Screen. Use the app from the Home Screen icon: Safari keeps a Home Screen
+   app's storage more readily than a website's, and the capture home says whether the browser
+   agreed to keep it ("Storage: …").
+
+### Every time
+
+```bash
+uv run --project python python scripts/serve.py
+```
+
+It builds the web app, copies the database to the backup folder, migrates it and serves on
+`127.0.0.1:8000` until Ctrl-C. Defaults (chosen by Henry, 2026-11-09):
+
+| What | Where |
+|---|---|
+| Database | `~/HandData/hands.db` (outside the repository) |
+| Backups | iCloud Drive, `HandData-backups/hands-<date>-<time>.db`; the newest 30 are kept |
+
+Each backup is SQLite's online copy, checked with `PRAGMA integrity_check`. To restore one: stop
+the server, copy the backup over `~/HandData/hands.db`, start again. `--data-dir`, `--backup-dir`,
+`--port` and `--no-build` change the defaults (for example, a separate database for a test).
+
+Sync happens only while the Mac is awake and the server running; until then hands wait on the
+phone, which can also export them as a file (capture home → "Export unsynced records"). Safari has
+no background sync: the app syncs when it is opened, when it comes back online, after a save and
+on "Sync now".

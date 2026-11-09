@@ -201,6 +201,19 @@ describe('incomplete hands (acceptance criterion 3)', () => {
 })
 
 describe('sync', () => {
+  it("says whether the browser keeps the phone's storage", async () => {
+    const h = await harness()
+    renderApp(h, '/capture')
+    expect(await screen.findByText(/^Storage: the browser may clear it/)).toBeInTheDocument()
+
+    const kept = await harness()
+    renderApp(
+      { ...kept, deps: { ...kept.deps, persist: () => Promise.resolve('persisted') } },
+      '/capture',
+    )
+    expect(await screen.findByText('Storage: kept by the browser.')).toBeInTheDocument()
+  })
+
   it('sends a saved hand at once, and reports when the server cannot be reached', async () => {
     const h = await harness()
     const sessionId = await seedSession(h)

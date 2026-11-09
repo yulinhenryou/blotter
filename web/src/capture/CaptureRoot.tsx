@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Outlet } from 'react-router'
 
-import { requestPersistence, type Store } from '../store/db.ts'
+import type { Persistence, Store } from '../store/db.ts'
 import { autoSync, serialized, syncOnce, type SyncReport } from '../sync/sync.ts'
 import { CaptureContext, defaultDeps, type Capture, type CaptureDeps } from './context.ts'
 
@@ -15,6 +15,7 @@ export function CaptureRoot({ deps = defaultDeps }: { deps?: CaptureDeps }) {
   const [version, setVersion] = useState(0)
   const [report, setReport] = useState<SyncReport | null>(null)
   const [syncing, setSyncing] = useState(false)
+  const [storage, setStorage] = useState<Persistence | null>(null)
 
   useEffect(() => {
     let current = true
@@ -27,7 +28,9 @@ export function CaptureRoot({ deps = defaultDeps }: { deps?: CaptureDeps }) {
       .catch((error: unknown) => {
         if (current) setFailed(error instanceof Error ? error.message : String(error))
       })
-    void requestPersistence()
+    void deps.persist().then((answer) => {
+      if (current) setStorage(answer)
+    })
     return () => {
       current = false
     }
@@ -57,8 +60,10 @@ export function CaptureRoot({ deps = defaultDeps }: { deps?: CaptureDeps }) {
 
   const capture = useMemo<Capture | null>(
     () =>
-      db === null || sync === null ? null : { db, deps, version, changed, sync, report, syncing },
-    [db, deps, version, changed, sync, report, syncing],
+      db === null || sync === null
+        ? null
+        : { db, deps, version, changed, sync, report, syncing, storage },
+    [db, deps, version, changed, sync, report, syncing, storage],
   )
 
   if (failed !== null) {

@@ -1,5 +1,6 @@
 // Text for the capture screens: session titles, times, sync states. Facts only.
 
+import type { Persistence } from '../store/db.ts'
 import type { RecordTypes, SyncStatus } from '../store/types.ts'
 
 /** "Casino Wien · 1/3 · 8 Nov 21:00". */
@@ -32,6 +33,18 @@ export const STATUS_TEXT: Readonly<Record<SyncStatus | 'draft', string>> = {
   synced: 'Synced',
   conflict: 'Conflict',
   invalid: 'Refused',
+}
+
+/**
+ * The browser's answer to "keep this app's storage" (M4a plan §1.6). Safari may clear a website's
+ * data it has not been asked to keep; it keeps it more readily for an app opened from the Home
+ * Screen.
+ */
+export const STORAGE_TEXT: Readonly<Record<Persistence, string>> = {
+  persisted: 'Storage: kept by the browser.',
+  not_persisted:
+    'Storage: the browser may clear it when space runs low. Open the app from the Home Screen, and export unsynced records if they wait long.',
+  unsupported: 'Storage: the browser does not say whether it keeps it.',
 }
 
 /** An ISO time as the value of an `<input type="datetime-local">`, in the phone's time zone. */
