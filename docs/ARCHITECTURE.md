@@ -316,9 +316,9 @@ deliberately left out until measurement says otherwise.
   the service worker does the same offline (ADR-0031).
 - **Capture mode shows no analysis.** The capture routes do not fetch or render any EV, strategy
   or opponent-model output (enforced by route structure, an ESLint rule that lets
-  `web/src/capture/` import only `rules`, `store`, `sync` and `design`, and an e2e test). This is
-  how the
-  post-game-only rule is built into the architecture.
+  `web/src/capture/` import only `rules`, `store`, `sync` and `design`, and an end-to-end test,
+  `web/e2e/no-analysis.e2e.ts`). This is how the post-game-only rule is built into the
+  architecture.
 - **Entry speed**: target under 60 seconds for a typical key hand on a phone. Design levers:
   tap-only card picker, position-aware defaults, bet-size chips in bb and pot fractions,
   "unknown" as a first-class value for villain cards and approximate stacks, finish-later drafts,
