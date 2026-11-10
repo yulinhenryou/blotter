@@ -254,3 +254,23 @@ Sync happens only while the Mac is awake and the server running; until then hand
 phone, which can also export them as a file (capture home → "Export unsynced records"). Safari has
 no background sync: the app syncs when it is opened, when it comes back online, after a save and
 on "Sync now".
+
+### Device check (M4a Task 8, acceptance criterion 5)
+
+Done on 2026-11-10 by Henry, with Claude on the Mac. Mac: macOS 27.2, Tailscale 1.104.5
+(standalone). iPhone: iOS 27.2, Safari, Tailscale from the App Store; the tailnet held only these
+two devices. The server ran `scripts/serve.py` on a separate database
+(`--data-dir ~/HandData/device-check`), so the test hands are not in Henry's real data.
+
+| Step | Result |
+|---|---|
+| `tailscale serve --bg --https=443 http://127.0.0.1:8000` | Serve had to be enabled for the tailnet first (the command printed the admin-console link; Henry enabled it); then `https://<mac>.<tailnet>.ts.net/` answered with a valid certificate |
+| Safari → Share → Add to Home Screen; open from the icon | Installed; opens full screen |
+| Capture home, storage line | "Storage: kept by the browser." (`navigator.storage.persist()` granted) |
+| Session started online; app closed; Airplane Mode **and** Wi-Fi off; opened from the icon | Opens |
+| A hand entered and saved offline | "Waiting to sync" |
+| Wi-Fi back on | "Synced"; the server holds the session's two hands once each, at revision 1 |
+
+The first offline attempt was not offline: iOS kept Wi-Fi on in Airplane Mode (it remembers Wi-Fi
+being turned on there), Tailscale stayed connected and the hand synced at once. Checking offline
+on an iPhone means Airplane Mode with Wi-Fi switched off as well.
