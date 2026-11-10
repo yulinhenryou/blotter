@@ -24,9 +24,10 @@ permissions:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    # A normal run takes about 3 minutes; a hung download (browsers, apt) should not run for the
-    # 6-hour default.
-    timeout-minutes: 20
+    # A run takes about 3 minutes when the runner's Ubuntu mirror is fast; on 2026-11-10 it served
+    # the browsers' system packages (114 MB) at about 140 kB/s and runs took 14-16 minutes. A hung
+    # download should still fail the check rather than run for the 6-hour default.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       # The API imports the native module review._engine, built from the Rust crates.
