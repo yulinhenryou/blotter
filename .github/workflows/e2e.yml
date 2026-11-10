@@ -24,6 +24,9 @@ permissions:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    # A normal run takes about 3 minutes; a hung download (browsers, apt) should not run for the
+    # 6-hour default.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       # The API imports the native module review._engine, built from the Rust crates.
