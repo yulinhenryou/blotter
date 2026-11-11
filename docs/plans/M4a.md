@@ -436,6 +436,22 @@ Each task is one PR (D7).
   the database location and a backup copy; `DEVELOPMENT.md` gets a "Use on the phone" section.
 - On Henry's iPhone: install, open offline, enter and sync a test hand, check storage
   persistence; recorded with the date and the iOS version (AC5).
+- As implemented: `scripts/serve.py` builds the web app, backs the database up, migrates it and
+  serves on `127.0.0.1:8000`. Henry chose (2026-11-09) the database at `~/HandData/hands.db`,
+  outside the repository, and backups in iCloud Drive (`HandData-backups/`), so copies leave the
+  Mac. Each backup is SQLite's online backup, checked with `PRAGMA integrity_check`; the newest 30
+  are kept. Checked on temporary folders: a first start creates the database with no backup, a
+  second one backs it up; 33 backups in a row leave 30, the 3 oldest removed. That check found
+  two copies made in the same second overwriting each other (the name now has microseconds),
+  status lines printed after uvicorn's (now flushed), and connections not closed (`closing`).
+  The capture home now shows the browser's answer to `navigator.storage.persist()` (§1.6 asked
+  for it; Task 6 had requested it without showing it), with a screen test.
+  `DEVELOPMENT.md` has "Use on the phone" and the record of the device check (2026-11-10, iOS
+  27.2): installed from Safari to the Home Screen, opens full screen, "Storage: kept by the
+  browser.", opens with Airplane Mode and Wi-Fi off, a hand saved offline waits and syncs when
+  Wi-Fi is back, the server holding each hand once. The first offline attempt was not offline
+  (iOS kept Wi-Fi on in Airplane Mode); repeated with Wi-Fi off. The device check used a
+  separate database (`~/HandData/device-check`), not the real one.
 
 ### Task 9 — Field trial and closing M4a
 

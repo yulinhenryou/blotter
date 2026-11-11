@@ -31,6 +31,7 @@ export async function harness(): Promise<Harness> {
     now: () => new Date(time),
     // The sample time is drawn at 0.5 of the window: 30 minutes after the session starts.
     uniform: () => 0.5,
+    persist: () => Promise.resolve('not_persisted'),
   }
   return {
     db,

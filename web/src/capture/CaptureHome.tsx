@@ -9,10 +9,10 @@ import { Button, ButtonLink } from '../design/Button.tsx'
 import styles from './capture.module.css'
 import { useCapture, useLoad } from './context.ts'
 import { describeCounts, listSessions, listVenues, syncCounts, unsyncedBatch } from './data.ts'
-import { sessionTitle } from './format.ts'
+import { sessionTitle, STORAGE_TEXT } from './format.ts'
 
 export function CaptureHome() {
-  const { db, sync, syncing, report, deps } = useCapture()
+  const { db, sync, syncing, report, deps, storage } = useCapture()
   const load = useCallback(
     async () => ({
       sessions: await listSessions(db),
@@ -93,6 +93,7 @@ export function CaptureHome() {
             Server not reached: {report.error}. Hands wait on the phone.
           </p>
         )}
+        {storage !== null && <p className={styles.muted}>{STORAGE_TEXT[storage]}</p>}
       </section>
 
       {past.length > 0 && (

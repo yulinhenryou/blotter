@@ -560,7 +560,8 @@ program Henry installs, not a dependency of the code. If the project ever has a 
 ADR is superseded.
 
 **Verification.** M4a Task 8: install on the Mac and the iPhone, open the app over HTTPS, sync a
-hand; recorded in `DEVELOPMENT.md` with the date.
+hand; recorded in `DEVELOPMENT.md` with the date. Done on 2026-11-10 (macOS 27.2, iOS 27.2,
+Tailscale 1.104.5): `DEVELOPMENT.md`, "Device check".
 
 ## ADR-0028: Betting rules on the phone too, cross-tested against Python
 

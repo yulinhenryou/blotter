@@ -52,7 +52,9 @@ export async function openStore(name: string = DB_NAME): Promise<Store> {
  * Ask the browser not to evict this origin's data under storage pressure (M4a plan §1.6).
  * Safari grants it more readily to an app opened from the Home Screen.
  */
-export async function requestPersistence(): Promise<'persisted' | 'not_persisted' | 'unsupported'> {
+export type Persistence = 'persisted' | 'not_persisted' | 'unsupported'
+
+export async function requestPersistence(): Promise<Persistence> {
   if (typeof navigator === 'undefined' || !('storage' in navigator)) return 'unsupported'
   try {
     if (await navigator.storage.persisted()) return 'persisted'
